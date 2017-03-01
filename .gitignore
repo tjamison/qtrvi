@@ -17,4 +17,11 @@ Makefile*
 *.obj
 *.exp
 *.lib
-
+lib
+mkspecs
+include
+qml
+.pch
+*.version**
+.qmake.cache
+.qmake.stash
