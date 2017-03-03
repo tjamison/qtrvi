@@ -194,8 +194,6 @@ QRviNode * QRviNode::getInstance()
     return _instance;
 }
 
-//TODO: The serviceData is not coming through as expected from the registerService call
-//      this is causing a crash rather than a callback invocation on the service object
 void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters)
 {
     //currently passing around the serviceName
