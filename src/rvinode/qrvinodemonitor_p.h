@@ -50,7 +50,7 @@ private:
     bool       _running;
     QMutex *   _lock;
     fd_set     _readerSockets;
-    int        _socketCount;
+    int        _maxFd;
     QList<int> _fdList;
 };
 

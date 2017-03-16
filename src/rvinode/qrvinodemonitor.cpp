@@ -8,21 +8,30 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include "time.h"
 
 QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
     : QObject(parent), _running(false), _lock(new QMutex())
 {
+    qDebug() << "Constructing a new node monitor.";
     //init the fd_set of sockets
     FD_ZERO(&_readerSockets);
+    _maxFd = 0;
+
+    qDebug() << "Just cleared the sockets. Socket count? " << _maxFd;
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
 {
+    qDebug() << "Tearing down the node monitor. Running: " << _running << " socketCount: " << _maxFd;
     // stop the loop
     _running = false;
 
+    qDebug() << "Just stopped the loop. Is it still running? " << _running;
     // clear reader sockets
     FD_ZERO(&_readerSockets);
+
+    qDebug() << "Just cleared the sockets. Value now? " << _maxFd;
 
     // _mutex should not be locked, safe to delete
     if (_lock)
@@ -35,16 +44,20 @@ QRviNodeMonitor::~QRviNodeMonitor()
 void QRviNodeMonitor::run()
 {
     int selectVal = 0;
+    int msToWait = 10;
 
     qWarning() << "QRviNodeMonitor thread running...";
 
     while (_running)
     {
-        if ((selectVal = select(_socketCount + 1, &_readerSockets, NULL, NULL, NULL)) == -1)
+        selectVal = select(_maxFd + 1, &_readerSockets, NULL, NULL, NULL); // no timeout, block until read is available
+        if (selectVal == -1)
         {
             //just kidding?
             if (errno == EINTR)
+            {
                 continue;
+            }
             else
             {
                 //actual error
@@ -56,10 +69,14 @@ void QRviNodeMonitor::run()
         }
 
         for (int fd : _fdList)
+        {
             if (FD_ISSET(fd, &_readerSockets))
+            {
                 emit rviReadyRead(fd);
+            }
+        }
 
-        QTime dieTime = QTime::currentTime().addMSecs(10);
+        QTime dieTime = QTime::currentTime().addMSecs(msToWait);
         while (QTime::currentTime() < dieTime);
     }
 }
@@ -79,5 +96,6 @@ void QRviNodeMonitor::addSocketDescriptor(int fd)
     QMutexLocker l(_lock);
     _fdList.append(fd);
     FD_SET(fd, &_readerSockets);
-    ++_socketCount;
+    if (fd > _maxFd)
+        _maxFd = fd;
 }
