@@ -66,6 +66,7 @@ public:
     Q_INVOKABLE void registerService(const QString &serviceName,
                                      QRviServiceObject *serviceObject,
                                      void * serviceData = Q_NULLPTR);
+    Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString("{}"));
 
 public Q_SLOTS:
     // success handlers
@@ -91,7 +92,8 @@ Q_SIGNALS:
     void rviNodeCleanupFailure(int error);
     void rviNodeMonitorBadPointer(int error);
     void rviNodeDisconnectInvalidConnection();
-    void rviNodeRegisterServiceError(int error);
+    void rviNodeRegisterServiceError(const QString serviceName, int error);
+    void rviNodeInvokeServiceError(const QString serviceName, int error);
     void rviNodeDisconnectUnknownError(int error);
     void rviNodeConnectionDuplicateFileDescriptor();
 
@@ -100,8 +102,9 @@ Q_SIGNALS:
     void newActiveConnection();
     void rviNodeCleanupSuccess();
     void rviRemoteNodeConnected();
-    void rviProcessInputSuccess();
-    void rviNodeRegisterServiceSuccess();
+    void rviProcessInputSuccess(int fd);
+    void rviNodeRegisterServiceSuccess(const QString serviceName);
+    void rviNodeInvokeServiceSuccess(const QString serviceName, const QString parameters);
     void rviNodeDisconnectionSuccess(int fd);
 
 private:

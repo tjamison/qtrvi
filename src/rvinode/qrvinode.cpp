@@ -158,10 +158,23 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceObject *se
     {
         qWarning() << "Error: unknown failure from rviRegisterService call"
                    << "Error Value: " << result;
-        emit rviNodeRegisterServiceError(result);
+        emit rviNodeRegisterServiceError(serviceName, result);
         return;
     }
-    emit rviNodeRegisterServiceSuccess();
+    emit rviNodeRegisterServiceSuccess(serviceName);
+}
+
+void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
+{
+    int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+    if (result != 0)
+    {
+        qWarning() << "Error: unknown failure from rviInvokeService call"
+                   << "Error Value: " << result;
+        emit rviNodeInvokeServiceError(serviceName, result);
+        return;
+    }
+    emit rviNodeInvokeServiceSuccess(serviceName, parameters);
 }
 
 // QRviNode::processInput receives the fd notified from the monitor thread
@@ -183,7 +196,7 @@ void QRviNode::processInput(int fd)
         emit rviProcessInputFailure();
         return;
     }
-    emit rviProcessInputSuccess();
+    emit rviProcessInputSuccess(fd);
     free(connectionArray);
 }
 
