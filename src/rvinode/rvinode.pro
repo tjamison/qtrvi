@@ -25,9 +25,11 @@ isEmpty(PREFIX) {
     message($$(QNX_TARGET))
     INCLUDEPATH += $$(QNX_TARGET)/x86/include
     LIBS += -L$$(QNX_TARGET)/x86/lib -lrvi
-} else {
-    INCLUDEPATH += $$PREFIX/include
-    LIBS += -L$$PREFIX/lib -lrvi
 }
+# This is unsafe for cross-compiling
+# else {
+#    INCLUDEPATH += $$PREFIX/include
+#    LIBS += -L$$PREFIX/lib -lrvi
+#}
 
 load(qt_module)
