@@ -24,12 +24,15 @@ isEmpty(PREFIX) {
 !isEmpty($$(QNX_TARGET)) {
     message($$(QNX_TARGET))
     INCLUDEPATH += $$(QNX_TARGET)/x86/include
-    LIBS += -L$$(QNX_TARGET)/x86/lib -lrvi
+    LIBS += -L$$(QNX_TARGET)/x86/lib 
 }
+
 # This is unsafe for cross-compiling
 # else {
 #    INCLUDEPATH += $$PREFIX/include
 #    LIBS += -L$$PREFIX/lib -lrvi
 #}
+
+LIBS += -lrvi
 
 load(qt_module)
