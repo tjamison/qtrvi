@@ -18,13 +18,16 @@ SOURCES += \
     qrviserviceobject.cpp
 
 # this is x86 dependent right now
+isEmpty(PREFIX) {
+    PREFIX = /usr/local
+}
 !isEmpty($$(QNX_TARGET)) {
     message($$(QNX_TARGET))
     INCLUDEPATH += $$(QNX_TARGET)/x86/include
     LIBS += -L$$(QNX_TARGET)/x86/lib -lrvi
 } else {
-    INCLUDEPATH += /usr/local/include
-    LIBS += -L/usr/local/lib -lrvi
+    INCLUDEPATH += $$PREFIX/include
+    LIBS += -L$$PREFIX/lib -lrvi
 }
 
 load(qt_module)

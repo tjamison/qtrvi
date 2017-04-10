@@ -17,17 +17,13 @@ QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
     //init the fd_set of sockets
     FD_ZERO(&_readerSockets);
     _maxFd = 0;
-
-    qDebug() << "Just cleared the sockets. Socket count? " << _maxFd;
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
 {
-    qDebug() << "Tearing down the node monitor. Running: " << _running << " socketCount: " << _maxFd;
     // stop the loop
     _running = false;
 
-    qDebug() << "Just stopped the loop. Is it still running? " << _running;
     // clear reader sockets
     FD_ZERO(&_readerSockets);
 
