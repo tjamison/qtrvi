@@ -298,7 +298,7 @@ void QRviNode::setupConnections()
             this, &QRviNode::handleRviMonitorFatalError);
 
     connect(_monitor, &QRviNodeMonitor::rviReadyRead,
-            this, &QRviNode::processInput);
+            this, &QRviNode::processInput, Qt::QueuedConnection);
 }
 
 // adds a new descriptor to the self-managed connection list

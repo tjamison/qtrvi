@@ -40,7 +40,7 @@ QRviNodeMonitor::~QRviNodeMonitor()
 void QRviNodeMonitor::run()
 {
     int selectVal = 0;
-    int msToWait = 10;
+    int msToWait = 200;
 
     qWarning() << "QRviNodeMonitor thread running...";
 
