@@ -32,7 +32,7 @@ void QRviNode::nodeInit()
     if (_confFile.isEmpty())
     {
         qWarning() << "Error: QT_RVI_NODE_CONFIG_FILE must be set in order to use QRviNode";
-        emit rviNodeNoPathSetInEnvironment();
+        emit noConfigPathSetInEnvironment();
         return;
     }
     // init API and get handle
@@ -40,10 +40,10 @@ void QRviNode::nodeInit()
     if (!_rviHandle)
     {
         qWarning() << "Error: rviInit failed to return a valid API handle";
-        emit rviInitFailure();
+        emit initError();
         return;
     }
-    emit rviInitialized();
+    emit initSuccess();
 }
 
 // Cleanup method
@@ -60,9 +60,9 @@ void QRviNode::nodeCleanup()
     {
         qWarning() << "Error: rviCleanup returned a non-zero value"
                    << "Error Val: " << returnVal;
-        emit rviNodeCleanupFailure(returnVal);
+        emit cleanupFailure(returnVal);
     }
-    emit rviNodeCleanupSuccess();
+    emit cleanupSuccess();
 }
 
 // Rvi Node connection method
@@ -91,15 +91,15 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
             qWarning() << "Error: rviConnect failed to return a valid API handle"
                        << "Please check the server address and port"
                        << "Address: " << _nodeAddress << ":" << _nodePort;
-            emit rviRemoteNodeConnectionFailure();
+            emit remoteConnectionError();
         }
         if (addNewConnectionDescriptor(fd))
-            emit rviRemoteNodeConnected();
+            emit remoteNodeConnected();
     }
     else
     {
         qWarning() << "Error: invalid RviHandle, is the node properly initialized?";
-        emit invalidRviNodeHandle();
+        emit invalidRviHandle();
     }
 }
 
@@ -114,7 +114,7 @@ void QRviNode::nodeDisconnect(int fd)
         qWarning() << "Error: specified connection does not exist in the list"
                    << "of active connections"
                    << "Specified connection: " << fd;
-        emit rviNodeDisconnectInvalidConnection();
+        emit invalidDisconnection();
         return;
     }
 
@@ -135,10 +135,10 @@ void QRviNode::nodeDisconnect(int fd)
     {
         qWarning() << "Error: unknown failure from rviDisconnect call"
                    << "Error Value: " << returnVal;
-        emit rviNodeDisconnectUnknownError(returnVal);
+        emit unknownErrorDuringDisconnection(returnVal);
         return;
     }
-    emit rviNodeDisconnectionSuccess(fd);
+    emit disconnectSuccess(fd);
 }
 
 // TODO: serviceData param? needs a couple overloads possibly?
@@ -158,46 +158,10 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceObject *se
     {
         qWarning() << "Error: unknown failure from rviRegisterService call"
                    << "Error Value: " << result;
-        emit rviNodeRegisterServiceError(serviceName, result);
+        emit registerServiceError(serviceName, result);
         return;
     }
-    emit rviNodeRegisterServiceSuccess(serviceName);
-}
-
-void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
-{
-    int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
-    if (result != 0)
-    {
-        qWarning() << "Error: unknown failure from rviInvokeService call"
-                   << "Error Value: " << result;
-        emit rviNodeInvokeServiceError(serviceName, result);
-        return;
-    }
-    emit rviNodeInvokeServiceSuccess(serviceName, parameters);
-}
-
-// QRviNode::processInput receives the fd notified from the monitor thread
-// so we know the size of the connectionArray is always 1
-void QRviNode::processInput(int fd)
-{
-    // create int* of lenth = 1
-    int * connectionArray = (int*)malloc(sizeof(int *));
-
-    // assign the only element of connectionArray
-    connectionArray[0] = fd;
-
-    int result = rviProcessInput(_rviHandle, connectionArray, 1);
-
-    if (result != 0)
-    {
-        qWarning() << "Unexpected error from rviProcessInput"
-                   << "Error value: " << result;
-        emit rviProcessInputFailure();
-        return;
-    }
-    emit rviProcessInputSuccess(fd);
-    free(connectionArray);
+    emit registerServiceSuccess(serviceName);
 }
 
 // Returns the reference to this instance of QRviNode
@@ -218,6 +182,42 @@ void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters
                 serviceData,
                 parameters
                 );
+}
+
+void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
+{
+    int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+    if (result != 0)
+    {
+        qWarning() << "Error: unknown failure from rviInvokeService call"
+                   << "Error Value: " << result;
+        emit invokeServiceError(serviceName, result);
+        return;
+    }
+    emit invokeServiceSuccess(serviceName, parameters);
+}
+
+// QRviNode::processInput receives the fd notified from the monitor thread
+// so we know the size of the connectionArray is always 1
+void QRviNode::processInput(int fd)
+{
+    // create int* of lenth = 1
+    int * connectionArray = (int*)malloc(sizeof(int *));
+
+    // assign the only element of connectionArray
+    connectionArray[0] = fd;
+
+    int result = rviProcessInput(_rviHandle, connectionArray, 1);
+
+    if (result != 0)
+    {
+        qWarning() << "Unexpected error from rviProcessInput"
+                   << "Error value: " << result;
+        emit processInputError();
+        return;
+    }
+    emit processInputSuccess(fd);
+    free(connectionArray);
 }
 
 QRviServiceObject * QRviNode::getServiceObjectFromMap(const QString &serviceName)
@@ -291,7 +291,7 @@ QRviNode::~QRviNode()
 
 void QRviNode::setupConnections()
 {
-    connect(this, &QRviNode::rviNodeMonitorBadPointer,
+    connect(this, &QRviNode::nodeMonitorBadPointer,
             this, &QRviNode::handleRviMonitorFatalError);
 
     connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
@@ -312,7 +312,7 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
     {
         qWarning() << "Error: QRviNode expects new connections to"
                    << "receive a unique integer file descriptor";
-        emit rviNodeConnectionDuplicateFileDescriptor();
+        emit addConnectionDuplicateFileDescriptorError();
         return false;
     }
 
@@ -361,7 +361,7 @@ void QRviNode::prepareAndRunRviMonitor()
     {
         qWarning() << "Error: unexpected nullptr returned from QRviNodeMonitor"
                    << "aborting prepareAndRunRviMonitor call...";
-        emit rviNodeMonitorBadPointer(420);
+        emit nodeMonitorBadPointer(420);
     }
     _monitor->startMonitor();
     QThreadPool::globalInstance()->start(_monitor);

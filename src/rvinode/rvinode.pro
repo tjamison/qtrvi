@@ -17,21 +17,15 @@ SOURCES += \
     qrvinodemonitor.cpp \
     qrviserviceobject.cpp
 
-# this is x86 dependent right now
-isEmpty(PREFIX) {
-    PREFIX = /usr/local
-}
-!isEmpty($$(QNX_TARGET)) {
+qnx {
     message($$(QNX_TARGET))
     INCLUDEPATH += $$(QNX_TARGET)/x86/include
     LIBS += -L$$(QNX_TARGET)/x86/lib 
 }
-
-# This is unsafe for cross-compiling
-# else {
-#    INCLUDEPATH += $$PREFIX/include
-#    LIBS += -L$$PREFIX/lib -lrvi
-#}
+unix {
+    INCLUDEPATH += /usr/local
+    LIBS += -L/usr/local/lib
+}
 
 LIBS += -lrvi
 

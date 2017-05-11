@@ -1,9 +1,9 @@
 #ifndef QRVINODE_H
 #define QRVINODE_H
 
-#include <QMap>
-#include <QObject>
-#include <QString>
+#include <QtCore/QMap>
+#include <QtCore/QObject>
+#include <QtCore/QString>
 
 #include <rvi.h>
 
@@ -32,7 +32,7 @@ class Q_QTRVI_EXPORT QRviNode : public QObject
 
 public:
 
-    QRviNode(QObject *parent = 0);
+    QRviNode(QObject *parent = Q_NULLPTR);
     ~QRviNode();
 
     /** Function signature for RVI callback functions */
@@ -76,36 +76,34 @@ public Q_SLOTS:
     void handleRviMonitorFatalError(int error);
 
 Q_SIGNALS:
-
     // property signals
     void nodePortChanged();
     void nodeAddressChanged();
     void configFileChanged();
 
     // error signals
-    void rviBadHandle();
-    void rviInitFailure();
-    void invalidRviNodeHandle();
-    void rviProcessInputFailure();
-    void rviNodeNoPathSetInEnvironment();
-    void rviRemoteNodeConnectionFailure();
-    void rviNodeCleanupFailure(int error);
-    void rviNodeMonitorBadPointer(int error);
-    void rviNodeDisconnectInvalidConnection();
-    void rviNodeRegisterServiceError(const QString serviceName, int error);
-    void rviNodeInvokeServiceError(const QString serviceName, int error);
-    void rviNodeDisconnectUnknownError(int error);
-    void rviNodeConnectionDuplicateFileDescriptor();
+    void initError();
+    void invalidRviHandle();
+    void processInputError();
+    void noConfigPathSetInEnvironment();
+    void remoteConnectionError();
+    void cleanupFailure(int error);
+    void nodeMonitorBadPointer(int error);
+    void invalidDisconnection();
+    void registerServiceError(const QString serviceName, int error);
+    void invokeServiceError(const QString serviceName, int error);
+    void unknownErrorDuringDisconnection(int error);
+    void addConnectionDuplicateFileDescriptorError();
 
     // success signals
-    void rviInitialized();
+    void initSuccess();
     void newActiveConnection();
-    void rviNodeCleanupSuccess();
-    void rviRemoteNodeConnected();
-    void rviProcessInputSuccess(int fd);
-    void rviNodeRegisterServiceSuccess(const QString serviceName);
-    void rviNodeInvokeServiceSuccess(const QString serviceName, const QString parameters);
-    void rviNodeDisconnectionSuccess(int fd);
+    void cleanupSuccess();
+    void remoteNodeConnected();
+    void processInputSuccess(int fd);
+    void registerServiceSuccess(const QString serviceName);
+    void invokeServiceSuccess(const QString serviceName, const QString parameters);
+    void disconnectSuccess(int fd);
 
 private:
 
