@@ -1,14 +1,24 @@
 #include "qrvinode.h"
 
-#include "qrvinodemonitor_p.h"
-
-// Qt includes
 #include <QDir>
 #include <QThreadPool>
 
 #include <QDebug>
 
-/* Public methods */
+#include "qrvinodemonitor_p.h"
+
+/** start rvi_lib callback helpers **/
+typedef struct CallbackData {
+    QString _serviceName;
+    QRviNode * _node;
+
+    CallbackData(const QString &name, QRviNode * node)
+        : _serviceName(name), _node(node) {}
+
+} CallbackData;
+
+void callbackHandler(int fd, void *serviceData, const char * parameters);
+/** end rvi_lib callback helpers **/
 
 // Constructor
 QRviNode::QRviNode(QObject *parent)
@@ -30,8 +40,6 @@ void QRviNode::setupConnections()
 //    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
 //            this, &QRviNode::processBytes);
 }
-
-/* Functional methods */
 
 // Initializer method
 void QRviNode::nodeInit()
@@ -63,10 +71,14 @@ void QRviNode::nodeInit()
 // Cleanup method
 void QRviNode::nodeCleanup()
 {
-    _monitor->stopMonitor();
-    QThreadPool::globalInstance()->waitForDone(5000);
-
     int returnVal = 0;
+
+    for (auto * m : _connectionReaderMap)
+        m->stopMonitor();
+
+    // wait 1 second for threads to finish
+    QThreadPool::globalInstance()->waitForDone(1000);
+
     //memory and connections to this handle
     //are cleaned up by rvi_lib
     returnVal = rviCleanup(_rviHandle);
@@ -122,8 +134,10 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
 // and, if valid, removes and disconnects the specified descriptor
 void QRviNode::nodeDisconnect(int fd)
 {
+    int returnVal = 0;
+
     // is this a valid disconnect request?
-    if (!_activeConnections.contains(fd))
+    if (!_connectionReaderMap.contains(fd))
     {
         qWarning() << "Error: specified connection does not exist in the list"
                    << "of active connections"
@@ -132,19 +146,18 @@ void QRviNode::nodeDisconnect(int fd)
         return;
     }
 
-    int index = 0;
-    int returnVal = 0;
+    // take and cleanup the related monitor thread
+    auto * m = _connectionReaderMap[fd];
+    m->stopMonitor();
+    delete m;
+    m = Q_NULLPTR;
 
-    // find our item's index
-    for (int i : _activeConnections)
-    {
-        if (i == fd)
-            break;
-        ++index;
-    }
-    _activeConnections.removeAt(index);
+    // then remove the descriptor map entry
+    _connectionReaderMap.remove(fd);
 
+    // finally tell rvi_lib we no longer need this
     returnVal = rviDisconnect(_rviHandle, fd);
+
     if (returnVal != 0)
     {
         qWarning() << "Error: unknown failure from rviDisconnect call"
@@ -160,6 +173,8 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
 {
     Q_UNUSED(serviceData)
 
+    int result = 0;
+
     // save the serviceObject pointer
     _serviceMap[serviceName] = serviceObject;
 
@@ -167,7 +182,9 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
     char * sn = new char[serviceName.length() + 1];
     qstrcpy(sn, serviceName.toLatin1().data());
 
-    int result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, (void*)sn);
+    CallbackData data(serviceName, this);
+
+    result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, &data);
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviRegisterService call"
@@ -178,39 +195,24 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
     emit registerServiceSuccess(serviceName);
 }
 
-// Returns the reference to this instance of QRviNode
-QRviNode * QRviNode::getInstance()
+void callbackHandler(int fd, void *serviceData, const char *parameters)
 {
-    static QRviNode * _instance = new QRviNode();
-    return _instance;
-}
-/*
-struct servicedata {
-qrvinode * n
-qstring s
-}
-*/
-void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters)
-{
-    //currently passing around the serviceName
-    QString serviceName((char *)serviceData);
-    QRviNode::getInstance()->
-            getServiceObjectFromMap(serviceName)->
-            rviServiceCallback(
-                fd,
-                serviceData,
-                parameters
-                );
+    CallbackData * d = (CallbackData*)serviceData;
+    d->_node->getServiceObjectFromMap(d->_serviceName)
+            ->rviServiceCallback(fd,
+                                 serviceData,
+                                 parameters);
 }
 
 void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
 {
+    int result = 0;
     if (serviceName.isEmpty())
     {
         qWarning() << "Error: cannot invoke a service without a service name parameter";
-        return false;
+        return;
     }
-    int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+    result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviInvokeService call"
@@ -328,9 +330,10 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
 
     _connectionReaderMap.insert(fd, new QRviNodeMonitor(fd, this));
 
-    // if this is the first connection, start the _monitor
-    if (_activeConnections.length() == 1)
-        prepareAndRunRviMonitor();
+    // pull, prepare, and start current monitor object
+    auto * m = _connectionReaderMap[fd];
+    m->startMonitor();
+    QThreadPool::globalInstance()->start(m);
 
     emit newActiveConnection();
     return true;
@@ -343,35 +346,35 @@ void QRviNode::handleRviMonitorFatalError(int error)
                << "Restarting QRviNodeMonitor...";
 
     // if it still exists, destroy it
-    if (_monitor)
-    {
-        _monitor->stopMonitor();
-        delete _monitor;
-        _monitor = Q_NULLPTR;
-    }
+//    if (_monitor)
+//    {
+//        _monitor->stopMonitor();
+//        delete _monitor;
+//        _monitor = Q_NULLPTR;
+//    }
 
     // recreate a new one
-    _monitor = new QRviNodeMonitor(this);
+//    _monitor = new QRviNodeMonitor(this);
 
     // add all active connections
-    for (int fd : _activeConnections)
-        _monitor->addSocketDescriptor(fd);
+//    for (int fd : _activeConnections)
+//        _monitor->addSocketDescriptor(fd);
 
-    _monitor->startMonitor();
+//    _monitor->startMonitor();
 
-    QThreadPool::globalInstance()->start(_monitor);
+//    QThreadPool::globalInstance()->start(_monitor);
 }
 
 // this method assumes any socket descriptors have already
 // been set before running the _monitor
 void QRviNode::prepareAndRunRviMonitor()
 {
-    if (!_monitor)
+//    if (!_monitor)
     {
         qWarning() << "Error: unexpected nullptr returned from QRviNodeMonitor"
                    << "aborting prepareAndRunRviMonitor call...";
         emit nodeMonitorBadPointer(420);
     }
-    _monitor->startMonitor();
-    QThreadPool::globalInstance()->start(_monitor);
+//    _monitor->startMonitor();
+//    QThreadPool::globalInstance()->start(_monitor);
 }

@@ -22,7 +22,7 @@
 #include "qtrvinode_global.h"
 
 // system includes
-#include <sys/select.h>
+#include <sys/poll.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -54,6 +54,11 @@ private:
     // to save memory reallocation for each required call
     int * _socketDescriptorMemoryArray;
     fd_set     _readerSockets;
+//    struct pollfd;
+
+    struct timeval _selectTimeout;
+    int _selectTimeoutValue;
+    void resetTimevalStructure();
 };
 
 QT_END_NAMESPACE

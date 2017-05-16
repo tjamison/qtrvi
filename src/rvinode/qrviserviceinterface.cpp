@@ -34,5 +34,5 @@ void QRviServiceInterface::setServiceName(const QString &name)
 
 int QRviServiceInterface::getAssociatedConnection() const
 {
-    return _associatedConnection
+    return _associatedConnection;
 }

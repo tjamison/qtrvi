@@ -11,7 +11,8 @@
 #include "time.h"
 
 QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
-    : QObject(parent), _running(false), _lock(new QMutex())
+    : QObject(parent), _running(false),
+      _lock(new QMutex()), _selectTimeoutValue()
 {
     qDebug() << "Constructing a new node monitor.";
     //init the fd_set of sockets
@@ -50,15 +51,19 @@ QRviNodeMonitor::~QRviNodeMonitor()
 
 void QRviNodeMonitor::run()
 {
-//    int selectVal = 0;
-//    int msToWait = 200;
+    int selectVal = 0;
 
     qWarning() << "QRviNodeMonitor thread running...";
 
     while (_running)
     {
+        resetTimevalStructure();
 
-        /*selectVal = select(_maxFd + 1, &_readerSockets, NULL, NULL, NULL); // no timeout, block until read is available
+        {//anonymous select() scope for the locker object
+            QMutexLocker l(_lock);
+            selectVal = select(_socketDescriptor + 1, &_readerSockets, NULL, NULL, &_selectTimeout);
+        }
+
         if (selectVal == -1)
         {
             //just kidding?
@@ -70,22 +75,16 @@ void QRviNodeMonitor::run()
             {
                 //actual error
                 perror("QRviNodeMonitor::run select call error");
-                _running = false;
+                this->stopMonitor();
                 emit rviMonitorFatalError(errno);
                 break;
             }
         }
 
-        for (int fd : _fdList)
-        {
-            if (FD_ISSET(fd, &_readerSockets))
-            {
-                emit rviReadyRead(fd);
-            }
-        }
-
-        QTime dieTime = QTime::currentTime().addMSecs(msToWait);
-        while (QTime::currentTime() < dieTime);*/
+//        if (FD_ISSET(_socketDescriptor, &_readerSockets))
+//        {
+//            emit rviReadyRead(_socketDescriptor);
+//        }
     }
 }
 
@@ -97,4 +96,15 @@ void QRviNodeMonitor::startMonitor()
 void QRviNodeMonitor::stopMonitor()
 {
     _running = false;
+}
+
+/*
+* Per the Linux man pages of select(2), found here: http://man7.org/linux/man-pages/man2/select.2.html
+* The value of our timeval structure is unreliable between utilizations within the call to select().
+* Therefore, we provide this private method which must be called before every occurance of select().
+*/
+void QRviNodeMonitor::resetTimevalStructure()
+{
+    _selectTimeout.tv_sec = 0;
+    _selectTimeout.tv_usec = _selectTimeoutValue;
 }

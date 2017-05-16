@@ -43,8 +43,7 @@ public:
     **/
     // singleton pattern due to callback function
     // used by the rviRegisterService call
-    static QRviNode * getInstance();
-    static void callbackHandler(int fd, void * serviceData, const char * parameters);
+//    static QRviNode * getInstance();
     QRviServiceInterface* getServiceObjectFromMap(const QString &serviceName);
     QList<int> * activeConnections();
 
