@@ -14,20 +14,18 @@
 QRviNode::QRviNode(QObject *parent)
     : QObject(parent), _rviHandle(NULL),
       _confFile(QStringLiteral("")), _nodePort(QStringLiteral("9007")),
-      _nodeAddress(QStringLiteral("38.129.64.41")),
-      _monitor(Q_NULLPTR)
+      _nodeAddress(QStringLiteral("38.129.64.41"))
 {
-//    _monitor = new QRviNodeMonitor(this);
-    setupConnections();
+//    setupConnections();
 }
 
 void QRviNode::setupConnections()
 {
-    connect(this, &QRviNode::nodeMonitorBadPointer,
-            this, &QRviNode::handleRviMonitorFatalError);
+//    connect(this, &QRviNode::nodeMonitorBadPointer,
+//            this, &QRviNode::handleRviMonitorFatalError);
 
-    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
-            this, &QRviNode::handleRviMonitorFatalError);
+//    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
+//            this, &QRviNode::handleRviMonitorFatalError);
 
 //    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
 //            this, &QRviNode::processBytes);
@@ -207,6 +205,11 @@ void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters
 
 void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
 {
+    if (serviceName.isEmpty())
+    {
+        qWarning() << "Error: cannot invoke a service without a service name parameter";
+        return false;
+    }
     int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
     if (result != 0)
     {
@@ -249,11 +252,6 @@ QRviServiceInterface * QRviNode::getServiceObjectFromMap(const QString &serviceN
     if (_serviceMap.contains(serviceName))
         return _serviceMap[serviceName];
     return Q_NULLPTR;
-}
-
-QList<int> * QRviNode::activeConnections()
-{
-    return &_activeConnections;
 }
 
 /* Property methods */
@@ -328,10 +326,7 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
         return false;
     }
 
-    auto m = new QRviNodeMonitor(this);
-
-    _activeConnections.append(fd);
-    _monitor->addSocketDescriptor(fd);
+    _connectionReaderMap.insert(fd, new QRviNodeMonitor(fd, this));
 
     // if this is the first connection, start the _monitor
     if (_activeConnections.length() == 1)

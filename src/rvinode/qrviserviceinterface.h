@@ -17,12 +17,13 @@ class Q_QTRVI_EXPORT QRviServiceInterface : public QObject
 
 public://int socketDescriptor
     QRviServiceInterface(QObject *parent = Q_NULLPTR);
-    QRviServiceInterface(const QString &name, QObject *parent = Q_NULLPTR);
+    QRviServiceInterface(int socketDescriptor, const QString &name, QObject *parent = Q_NULLPTR);
     ~QRviServiceInterface();
 
     virtual void rviServiceCallback(int fd, void * serviceData, const char * parameters) = 0;
 
     QString serviceName();
+    int getAssociatedConnection() const;
 
     void setServiceName(const QString &name);
 
@@ -31,6 +32,7 @@ Q_SIGNALS:
 
 private:
     QString _serviceName;
+    int _associatedConnection;
 
 };
 

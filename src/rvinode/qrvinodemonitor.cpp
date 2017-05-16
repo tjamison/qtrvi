@@ -15,8 +15,15 @@ QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
 {
     qDebug() << "Constructing a new node monitor.";
     //init the fd_set of sockets
-//    FD_ZERO(&_readerSockets);
-//    _maxFd = 0;
+    FD_ZERO(&_readerSockets);
+}
+
+QRviNodeMonitor::QRviNodeMonitor(int fd, QObject *parent)
+    : QObject(parent), _socketDescriptor(fd), _socketDescriptorMemoryArray(Q_NULLPTR)
+{
+    //c-style allocation for use with rvi_lib c api
+    _socketDescriptorMemoryArray = (int*)malloc(sizeof(int*));
+    _socketDescriptorMemoryArray[0] = _socketDescriptor;
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
@@ -25,9 +32,13 @@ QRviNodeMonitor::~QRviNodeMonitor()
     _running = false;
 
     // clear reader sockets
-//    FD_ZERO(&_readerSockets);
+    FD_ZERO(&_readerSockets);
 
-    qDebug() << "Just cleared the sockets. Value now? " << _maxFd;
+    if (_socketDescriptorMemoryArray)
+    {//c-style free to match c-style allocation
+        free(_socketDescriptorMemoryArray);
+        _socketDescriptorMemoryArray = Q_NULLPTR;
+    }
 
     // _mutex should not be locked, safe to delete
     if (_lock)
@@ -86,13 +97,4 @@ void QRviNodeMonitor::startMonitor()
 void QRviNodeMonitor::stopMonitor()
 {
     _running = false;
-}
-
-void QRviNodeMonitor::addSocketDescriptor(int fd)
-{
-//    QMutexLocker l(_lock);
-//    _fdList.append(fd);
-//    FD_SET(fd, &_readerSockets);
-//    if (fd > _maxFd)
-//        _maxFd = fd;
 }

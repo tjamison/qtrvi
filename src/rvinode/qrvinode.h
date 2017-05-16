@@ -69,9 +69,6 @@ public:
     Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
 
 public Q_SLOTS:
-    // success handlers
-//    void processBytes(const QByteArray &bytes);
-
     // error handlers
     void handleRviMonitorFatalError(int error);
 
@@ -113,8 +110,6 @@ private:
     QString _confFile;
     QString _nodePort;
     QString _nodeAddress;
-
-//    QRviNodeMonitor * _monitor;
 
     //collection of connected services
     QMap<QString, QRviServiceInterface* > _serviceMap;

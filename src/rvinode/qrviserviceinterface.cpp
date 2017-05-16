@@ -6,8 +6,8 @@ QRviServiceInterface::QRviServiceInterface(QObject *parent)
 
 }
 
-QRviServiceInterface::QRviServiceInterface(const QString &name, QObject *parent)
-    : QObject(parent), _serviceName(name)
+QRviServiceInterface::QRviServiceInterface(int socketDescriptor, const QString &name, QObject *parent)
+    : QObject(parent), _serviceName(name), _associatedConnection(socketDescriptor)
 {
 
 }
@@ -30,4 +30,9 @@ void QRviServiceInterface::setServiceName(const QString &name)
         _serviceName = name;
         emit serviceNameChanged();
     }
+}
+
+int QRviServiceInterface::getAssociatedConnection() const
+{
+    return _associatedConnection
 }

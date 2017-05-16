@@ -22,7 +22,7 @@
 #include "qtrvinode_global.h"
 
 // system includes
-//#include <sys/select.h>
+#include <sys/select.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -40,12 +40,7 @@ public:
     void startMonitor();
     void stopMonitor();
 
-    void addSocketDescriptor(int fd);
-
 Q_SIGNALS:
-    // success signals
-//    void bytesAvailable(const QByteArray &bytes);
-
     // error signals
     void rviMonitorFatalError(int error);
 
@@ -58,9 +53,7 @@ private:
     // for the lifetime of the QRviNodeMonitor in order
     // to save memory reallocation for each required call
     int * _socketDescriptorMemoryArray;
-//    fd_set     _readerSockets;
-//    int        _maxFd;
-//    QList<int> _fdList;
+    fd_set     _readerSockets;
 };
 
 QT_END_NAMESPACE
