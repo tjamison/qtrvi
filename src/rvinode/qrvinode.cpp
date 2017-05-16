@@ -13,13 +13,24 @@
 // Constructor
 QRviNode::QRviNode(QObject *parent)
     : QObject(parent), _rviHandle(NULL),
-      _confFile(""), _nodePort("9007"),
-      _nodeAddress("38.129.64.41"),
+      _confFile(QStringLiteral("")), _nodePort(QStringLiteral("9007")),
+      _nodeAddress(QStringLiteral("38.129.64.41")),
       _monitor(Q_NULLPTR)
 {
-    _monitor = new QRviNodeMonitor(this);
-    QThreadPool::globalInstance()->setMaxThreadCount(2);
+//    _monitor = new QRviNodeMonitor(this);
     setupConnections();
+}
+
+void QRviNode::setupConnections()
+{
+    connect(this, &QRviNode::nodeMonitorBadPointer,
+            this, &QRviNode::handleRviMonitorFatalError);
+
+    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
+            this, &QRviNode::handleRviMonitorFatalError);
+
+//    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
+//            this, &QRviNode::processBytes);
 }
 
 /* Functional methods */
@@ -27,6 +38,11 @@ QRviNode::QRviNode(QObject *parent)
 // Initializer method
 void QRviNode::nodeInit()
 {
+    if (_rviHandle)
+    {
+        qWarning() << "Error: This QRviNode(" << this << ") was already initialized.";
+        return;
+    }
     // check for path to configuration
     _confFile = QDir::fromNativeSeparators(qgetenv("QT_RVI_NODE_CONFIG_FILE"));
     if (_confFile.isEmpty())
@@ -142,7 +158,7 @@ void QRviNode::nodeDisconnect(int fd)
 }
 
 // TODO: serviceData param? needs a couple overloads possibly?
-void QRviNode::registerService(const QString &serviceName, QRviServiceObject *serviceObject, void *serviceData)
+void QRviNode::registerService(const QString &serviceName, QRviServiceInterface *serviceObject, void *serviceData)
 {
     Q_UNUSED(serviceData)
 
@@ -170,7 +186,12 @@ QRviNode * QRviNode::getInstance()
     static QRviNode * _instance = new QRviNode();
     return _instance;
 }
-
+/*
+struct servicedata {
+qrvinode * n
+qstring s
+}
+*/
 void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters)
 {
     //currently passing around the serviceName
@@ -199,8 +220,10 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
 
 // QRviNode::processInput receives the fd notified from the monitor thread
 // so we know the size of the connectionArray is always 1
-void QRviNode::processInput(int fd)
-{
+//void QRviNode::processBytes(const QByteArray &bytes)
+//{
+
+    /*
     // create int* of lenth = 1
     int * connectionArray = (int*)malloc(sizeof(int *));
 
@@ -218,9 +241,10 @@ void QRviNode::processInput(int fd)
     }
     emit processInputSuccess(fd);
     free(connectionArray);
-}
+    */
+//}
 
-QRviServiceObject * QRviNode::getServiceObjectFromMap(const QString &serviceName)
+QRviServiceInterface * QRviNode::getServiceObjectFromMap(const QString &serviceName)
 {
     if (_serviceMap.contains(serviceName))
         return _serviceMap[serviceName];
@@ -289,18 +313,6 @@ QRviNode::~QRviNode()
 
 /* Private methods */
 
-void QRviNode::setupConnections()
-{
-    connect(this, &QRviNode::nodeMonitorBadPointer,
-            this, &QRviNode::handleRviMonitorFatalError);
-
-    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
-            this, &QRviNode::handleRviMonitorFatalError);
-
-    connect(_monitor, &QRviNodeMonitor::rviReadyRead,
-            this, &QRviNode::processInput, Qt::QueuedConnection);
-}
-
 // adds a new descriptor to the self-managed connection list
 // checks for duplicate descriptor values, as this should not happen
 // return true if unique descriptor added and notifies
@@ -308,13 +320,15 @@ void QRviNode::setupConnections()
 bool QRviNode::addNewConnectionDescriptor(int fd)
 {
     // not allowed to have duplicate descriptors
-    if (_activeConnections.contains(fd))
+    if (_connectionReaderMap.contains(fd))
     {
         qWarning() << "Error: QRviNode expects new connections to"
                    << "receive a unique integer file descriptor";
         emit addConnectionDuplicateFileDescriptorError();
         return false;
     }
+
+    auto m = new QRviNodeMonitor(this);
 
     _activeConnections.append(fd);
     _monitor->addSocketDescriptor(fd);

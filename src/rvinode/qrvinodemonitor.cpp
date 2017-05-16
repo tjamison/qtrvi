@@ -15,8 +15,8 @@ QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
 {
     qDebug() << "Constructing a new node monitor.";
     //init the fd_set of sockets
-    FD_ZERO(&_readerSockets);
-    _maxFd = 0;
+//    FD_ZERO(&_readerSockets);
+//    _maxFd = 0;
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
@@ -25,7 +25,7 @@ QRviNodeMonitor::~QRviNodeMonitor()
     _running = false;
 
     // clear reader sockets
-    FD_ZERO(&_readerSockets);
+//    FD_ZERO(&_readerSockets);
 
     qDebug() << "Just cleared the sockets. Value now? " << _maxFd;
 
@@ -39,14 +39,15 @@ QRviNodeMonitor::~QRviNodeMonitor()
 
 void QRviNodeMonitor::run()
 {
-    int selectVal = 0;
-    int msToWait = 200;
+//    int selectVal = 0;
+//    int msToWait = 200;
 
     qWarning() << "QRviNodeMonitor thread running...";
 
     while (_running)
     {
-        selectVal = select(_maxFd + 1, &_readerSockets, NULL, NULL, NULL); // no timeout, block until read is available
+
+        /*selectVal = select(_maxFd + 1, &_readerSockets, NULL, NULL, NULL); // no timeout, block until read is available
         if (selectVal == -1)
         {
             //just kidding?
@@ -73,7 +74,7 @@ void QRviNodeMonitor::run()
         }
 
         QTime dieTime = QTime::currentTime().addMSecs(msToWait);
-        while (QTime::currentTime() < dieTime);
+        while (QTime::currentTime() < dieTime);*/
     }
 }
 
@@ -89,9 +90,9 @@ void QRviNodeMonitor::stopMonitor()
 
 void QRviNodeMonitor::addSocketDescriptor(int fd)
 {
-    QMutexLocker l(_lock);
-    _fdList.append(fd);
-    FD_SET(fd, &_readerSockets);
-    if (fd > _maxFd)
-        _maxFd = fd;
+//    QMutexLocker l(_lock);
+//    _fdList.append(fd);
+//    FD_SET(fd, &_readerSockets);
+//    if (fd > _maxFd)
+//        _maxFd = fd;
 }

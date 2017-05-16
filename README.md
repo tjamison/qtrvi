@@ -1,18 +1,21 @@
-Module:
+Purpose:
 -----------------
-This project is intended to be a Qtified library for JLR's RVI protocol.
+Qt wrapper to create an event driven interface for an application developer to easily integrate GENIVI's RVI protocol.
 
-
-Copyright:
+Copyright and Authors:
 ----------------
-For the moment, this project is entirely internal.
-My goal is to integrate this QtRvi module into the Qt Playground and start working towards potential integration with either Qt5 mainline or Qt Automotive Suite.
+(C) 2016 Jaguar Land Rover - All rights reserved.
 
+Jack Sanchez - <jsanche4@jaguarlandrover.com>
+Tatiana Jamison - <tjamison@jaguarlandrover.com>
+
+TODO: Clarify licensing beyond the above...
 
 Dependencies:
 ---------------
-This project depends on the QtBase module and generally requires Qt 5.7+ to be installed.
-This project will use C++11 constructs and will require a supported compiler (which is enforced by Qt 5.7)
+Requires the Qt framework (5.6+) to be installed and accessible in the environment
+Requires rvi_lib <https://github.com/GENIVI/rvi_lib> to be installed
+C++11 compliant compiler
 
 Features:
 --------------
@@ -22,22 +25,17 @@ Features:
 
 Building:
 ---------------
-This module will follow basic Qt module build steps:
+If rvi_lib is accessible through default environment variable paths, then this module will follow basic Qt module build steps:
 ```
 qmake
 make
 make install
 ```
 
+If you have installed rvi_lib to a custom location, you may specify the include and library paths using the following variables:
+```
+RVI_INCLUDE_PATH
+RVI_LIB_PATH
+```
+
 The module will be deployed to the location of the Qt SDK referenced by your qmake used during the build phase.
-
-
-Timeline:
----------------
-Initially this module will wrap the C implementation, rvi_lib, found here: https://github.com/GENIVI/rvi_lib
-
-Over time I intend to implement the RVI protocol within this project where the QtRviNode can leverage the work done in the QSslSocket component.
-
-Also, I intend to investigate a Qtified wrapper and/or interface to rvi_core, found here: https://github.com/GENIVI/rvi_core
-
-For questions and concerns, please contact Jack Sanchez <jsanche4@jaguarlandrover.com>

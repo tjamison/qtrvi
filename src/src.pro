@@ -9,4 +9,5 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
-        rvinode
+	rvinode \
+	imports

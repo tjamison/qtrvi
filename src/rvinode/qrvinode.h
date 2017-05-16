@@ -8,7 +8,7 @@
 #include <rvi.h>
 
 #include "qtrvinode_global.h"
-#include "qrviserviceobject.h"
+#include "qrviserviceinterface.h"
 
 // TODO:
 // * ) Need to handle cleanup and disconnect conditions
@@ -45,7 +45,7 @@ public:
     // used by the rviRegisterService call
     static QRviNode * getInstance();
     static void callbackHandler(int fd, void * serviceData, const char * parameters);
-    QRviServiceObject* getServiceObjectFromMap(const QString &serviceName);
+    QRviServiceInterface* getServiceObjectFromMap(const QString &serviceName);
     QList<int> * activeConnections();
 
     // property readers
@@ -64,13 +64,13 @@ public:
     Q_INVOKABLE void nodeConnect(const QString &address = QString(), const QString &port = QString());
     Q_INVOKABLE void nodeDisconnect(int fd);
     Q_INVOKABLE void registerService(const QString &serviceName,
-                                     QRviServiceObject *serviceObject,
+                                     QRviServiceInterface *serviceObject,
                                      void * serviceData = Q_NULLPTR);
-    Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString("{}"));
+    Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
 
 public Q_SLOTS:
     // success handlers
-    void processInput(int fd);
+//    void processBytes(const QByteArray &bytes);
 
     // error handlers
     void handleRviMonitorFatalError(int error);
@@ -107,17 +107,17 @@ Q_SIGNALS:
 
 private:
 
-    QList<int> _activeConnections;
+    QMap<int, QRviNodeMonitor*> _connectionReaderMap;
     TRviHandle _rviHandle;
 
     QString _confFile;
     QString _nodePort;
     QString _nodeAddress;
 
-    QRviNodeMonitor * _monitor;
+//    QRviNodeMonitor * _monitor;
 
     //collection of connected services
-    QMap<QString, QRviServiceObject* > _serviceMap;
+    QMap<QString, QRviServiceInterface* > _serviceMap;
 
     // private methods
     void setupConnections();

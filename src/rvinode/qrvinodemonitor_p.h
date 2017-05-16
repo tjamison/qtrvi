@@ -8,6 +8,8 @@
  * change or disappear at any time for any reason and
  * will not impact the public API for a QRviNode object.
  *
+ * We mean it.
+ *
 ********************************************************/
 
 
@@ -20,7 +22,7 @@
 #include "qtrvinode_global.h"
 
 // system includes
-#include <sys/select.h>
+//#include <sys/select.h>
 
 QT_BEGIN_NAMESPACE
 
@@ -29,7 +31,8 @@ class Q_QTRVI_EXPORT QRviNodeMonitor : public QObject, public QRunnable
     Q_OBJECT
 
 public:
-    QRviNodeMonitor(QObject *parent = 0);
+    QRviNodeMonitor(QObject *parent = Q_NULLPTR);
+    QRviNodeMonitor(int fd, QObject *parent = Q_NULLPTR);
     ~QRviNodeMonitor();
 
     void run() override;
@@ -41,7 +44,7 @@ public:
 
 Q_SIGNALS:
     // success signals
-    void rviReadyRead(int fd);
+//    void bytesAvailable(const QByteArray &bytes);
 
     // error signals
     void rviMonitorFatalError(int error);
@@ -49,9 +52,15 @@ Q_SIGNALS:
 private:
     bool       _running;
     QMutex *   _lock;
-    fd_set     _readerSockets;
-    int        _maxFd;
-    QList<int> _fdList;
+    int _socketDescriptor;
+
+    // this is necessary for rviProcessInput and held
+    // for the lifetime of the QRviNodeMonitor in order
+    // to save memory reallocation for each required call
+    int * _socketDescriptorMemoryArray;
+//    fd_set     _readerSockets;
+//    int        _maxFd;
+//    QList<int> _fdList;
 };
 
 QT_END_NAMESPACE
