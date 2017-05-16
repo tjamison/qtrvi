@@ -25,3 +25,5 @@ qml
 *.version**
 .qmake.cache
 .qmake.stash
+target_wrapper*
+rvinode-test
