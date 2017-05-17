@@ -13,6 +13,8 @@ private slots:
     void cleanupTestCase();
     void cleanup();
 
+    void testRviNodeInitWithNoConfigFilePath();
+    void testRviNodeInitWithBadConfigFilePath();
     void testRviNodeInitWithGoodConfigFilePath();
 
 private:
@@ -28,8 +30,6 @@ void TestQRviNode::init()
     node = new QRviNode(this);
 }
 
-// TODO: setup the pathing so that the test will succeed while
-// rvi_lib handling of the conf.json file is lacking
 void TestQRviNode::testRviNodeInitWithGoodConfigFilePath()
 {
     QSignalSpy initSuccessSpy(node, &QRviNode::initSuccess);
@@ -48,6 +48,46 @@ void TestQRviNode::testRviNodeInitWithGoodConfigFilePath()
 
     // we should not see the no config path error
     QCOMPARE(noConfigPathSetSpy.count(), 0);
+}
+
+void TestQRviNode::testRviNodeInitWithBadConfigFilePath()
+{
+    QSignalSpy initSuccessSpy(node, &QRviNode::initSuccess);
+    QSignalSpy initErrorSpy(node, &QRviNode::initError);
+    QSignalSpy noConfigPathSetSpy(node, &QRviNode::noConfigPathSetInEnvironment);
+
+    qputenv("QT_RVI_NODE_CONFIG_FILE", ".");
+
+    node->nodeInit();
+
+    // initSuccess should not be emitted
+    QCOMPARE(initSuccessSpy.count(), 0);
+
+    // initError should be emitted only once
+    QCOMPARE(initErrorSpy.count(), 1);
+
+    // we should not see the no config path error
+    QCOMPARE(noConfigPathSetSpy.count(), 0);
+}
+
+void TestQRviNode::testRviNodeInitWithNoConfigFilePath()
+{
+    QSignalSpy initSuccessSpy(node, &QRviNode::initSuccess);
+    QSignalSpy initErrorSpy(node, &QRviNode::initError);
+    QSignalSpy noConfigPathSetSpy(node, &QRviNode::noConfigPathSetInEnvironment);
+
+    // no environment variable for QT_RVI_NODE_CONFIG_FILE is set here
+
+    node->nodeInit();
+
+    // initSuccess should not be emitted
+    QCOMPARE(initSuccessSpy.count(), 0);
+
+    // initError should not be emitted
+    QCOMPARE(initErrorSpy.count(), 0);
+
+    // we should only see the no config path error once
+    QCOMPARE(noConfigPathSetSpy.count(), 1);
 }
 
 void TestQRviNode::cleanupTestCase()
