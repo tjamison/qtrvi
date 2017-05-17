@@ -58,6 +58,8 @@ private:
     // poll() objects
     struct pollfd _readerSocket;
     int _timeoutValue;
+
+    void setTimeout();
 };
 
 QT_END_NAMESPACE

@@ -26,19 +26,10 @@ QRviNode::QRviNode(QObject *parent)
       _confFile(QStringLiteral("")), _nodePort(QStringLiteral("9007")),
       _nodeAddress(QStringLiteral("38.129.64.41"))
 {
-    //    setupConnections();
 }
 
 void QRviNode::setupConnections()
 {
-    //    connect(this, &QRviNode::nodeMonitorBadPointer,
-    //            this, &QRviNode::handleRviMonitorFatalError);
-
-    //    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
-    //            this, &QRviNode::handleRviMonitorFatalError);
-
-    //    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
-    //            this, &QRviNode::processBytes);
 }
 
 // Initializer method
@@ -50,7 +41,7 @@ void QRviNode::nodeInit()
         return;
     }
     // check for path to configuration
-    _confFile = QDir::fromNativeSeparators(qgetenv("QT_RVI_NODE_CONFIG_FILE"));
+    _confFile = QDir::fromNativeSeparators(QLatin1String(qgetenv("QT_RVI_NODE_CONFIG_FILE")));
     if (_confFile.isEmpty())
     {
         qWarning() << "Error: QT_RVI_NODE_CONFIG_FILE must be set in order to use QRviNode";
@@ -169,7 +160,6 @@ void QRviNode::nodeDisconnect(int fd)
     emit disconnectSuccess(fd);
 }
 
-// TODO: serviceData param? needs a couple overloads possibly?
 void QRviNode::registerService(const QString &serviceName, QRviServiceInterface *serviceObject, void *serviceData)
 {
     Q_UNUSED(serviceData)

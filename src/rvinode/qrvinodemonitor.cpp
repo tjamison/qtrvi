@@ -6,22 +6,21 @@
 #include <QTime>
 #include <QCoreApplication>
 
-#include <stdio.h>
 #include <errno.h>
-#include "time.h"
 
 QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
     : QObject(parent), _running(false),
       _lock(new QMutex()), _socketDescriptor(0),
       _readerSocket(), _timeoutValue(0)
 {
-    qDebug() << "Constructing a new node monitor.";
+    this->setTimeout();
 }
 
 QRviNodeMonitor::QRviNodeMonitor(int fd, QObject *parent)
     : QObject(parent), _running(false), _lock(new QMutex()),
       _socketDescriptor(fd), _readerSocket(), _timeoutValue(0)
 {
+    this->setTimeout();
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
@@ -37,11 +36,15 @@ QRviNodeMonitor::~QRviNodeMonitor()
     }
 }
 
+void QRviNodeMonitor::setTimeout()
+{
+    /* Timeout value provided to poll() based on milliseconds */
+    _timeoutValue = (50);
+}
+
 void QRviNodeMonitor::run()
 {
     int result = 0;
-
-    qWarning() << "QRviNodeMonitor thread running...";
 
     while (_running)
     {
