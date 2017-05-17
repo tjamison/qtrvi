@@ -36,7 +36,7 @@ void TestQRviNode::testRviNodeInitWithGoodConfigFilePath()
     QSignalSpy initErrorSpy(node, &QRviNode::initError);
     QSignalSpy noConfigPathSetSpy(node, &QRviNode::noConfigPathSetInEnvironment);
 
-    qputenv("QT_RVI_NODE_CONFIG_FILE", ".");
+    qputenv("QT_RVI_NODE_CONFIG_FILE", "./conf.json");
 
     node->nodeInit();
 
