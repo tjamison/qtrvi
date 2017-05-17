@@ -1,6 +1,6 @@
 TEMPLATE = app
 
-QT += core testlib #rvinode
+QT += core testlib rvinode
 
 TARGET = rvinode-test
 
