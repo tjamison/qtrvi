@@ -7,8 +7,6 @@
 #include <QtRviNode/QtRviNode>
 #include <QtQml/qqmlextensionplugin.h>
 
-#include <QtRviNode/QRviNode>
-
 QT_BEGIN_NAMESPACE
 
 class RviNodePlugin : public QQmlExtensionPlugin

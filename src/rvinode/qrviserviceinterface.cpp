@@ -36,3 +36,8 @@ int QRviServiceInterface::getAssociatedConnection() const
 {
     return _associatedConnection;
 }
+
+void QRviServiceInterface::setSocketDescriptor(int socket)
+{
+    _associatedConnection = socket;
+}

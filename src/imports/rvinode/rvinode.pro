@@ -3,7 +3,7 @@ TARGET = rvinodeplugin
 TARGETPATH = RviNode
 IMPORT_VERSION = 1.0
 
-QT += core
+QT += core rvinode
 
 SOURCES += \
 	rvinode_plugin.cpp

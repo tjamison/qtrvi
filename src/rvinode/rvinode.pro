@@ -19,6 +19,7 @@ SOURCES += \
 
 RVI_INCLUDE_PATH=$$(RVI_INCLUDE_PATH)
 RVI_LIB_PATH=$$(RVI_LIB_PATH)
+
 !isEmpty(RVI_LIB_PATH):!isEmpty(RVI_INCLUDE_PATH) {
     unix {
 	INCLUDEPATH += $$RVI_INCLUDE_PATH
@@ -26,7 +27,7 @@ RVI_LIB_PATH=$$(RVI_LIB_PATH)
     }
 } else {
     unix {
-	message(Notice! RVI_LIB_PATH and/or RVI_INCLUDE_PATH environment variables not set, may not be able to see librvi)
+	message("Notice! RVI_LIB_PATH and/or RVI_INCLUDE_PATH environment variables not set, may not be able to see librvi")
     }
     qnx {
 	message($$(QNX_TARGET))

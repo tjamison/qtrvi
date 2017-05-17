@@ -40,25 +40,24 @@ public:
     void startMonitor();
     void stopMonitor();
 
+    QMutex * getLock();
+    int getTimeoutValue() const;
+
 Q_SIGNALS:
+    void readyRead(int socket);
+
     // error signals
-    void rviMonitorFatalError(int error);
+    void rviMonitorError(int socket, int error);
 
 private:
+    // private members
     bool       _running;
     QMutex *   _lock;
     int _socketDescriptor;
 
-    // this is necessary for rviProcessInput and held
-    // for the lifetime of the QRviNodeMonitor in order
-    // to save memory reallocation for each required call
-    int * _socketDescriptorMemoryArray;
-    fd_set     _readerSockets;
-//    struct pollfd;
-
-    struct timeval _selectTimeout;
-    int _selectTimeoutValue;
-    void resetTimevalStructure();
+    // poll() objects
+    struct pollfd _readerSocket;
+    int _timeoutValue;
 };
 
 QT_END_NAMESPACE

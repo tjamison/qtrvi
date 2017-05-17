@@ -8,6 +8,12 @@
 
 TEMPLATE = subdirs
 
-SUBDIRS += \
-	rvinode \
-	imports
+rvinode.subdir = rvinode
+rvinode.target = rvinode-lib
+SUBDIRS += rvinode
+
+plugins.subdir = imports
+plugins.depends += rvinode-lib
+plugins.target = plugins-lib
+
+SUBDIRS += plugins

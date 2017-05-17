@@ -35,17 +35,7 @@ public:
     QRviNode(QObject *parent = Q_NULLPTR);
     ~QRviNode();
 
-    /** Function signature for RVI callback functions */
-    /*typedef void (*TRviCallback) ( int fd,
-    *                                void* serviceData,
-    *                                const char *parameters
-    *                              );
-    **/
-    // singleton pattern due to callback function
-    // used by the rviRegisterService call
-//    static QRviNode * getInstance();
     QRviServiceInterface* getServiceObjectFromMap(const QString &serviceName);
-    QList<int> * activeConnections();
 
     // property readers
     QString nodePort() const;
@@ -68,8 +58,10 @@ public:
     Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
 
 public Q_SLOTS:
+    void onReadyRead(int socket);
+
     // error handlers
-    void handleRviMonitorFatalError(int error);
+    void handleRviMonitorError(int socket, int error);
 
 Q_SIGNALS:
     // property signals
@@ -81,25 +73,27 @@ Q_SIGNALS:
     void initError();
     void invalidRviHandle();
     void processInputError();
-    void noConfigPathSetInEnvironment();
+    void invalidDisconnection();
     void remoteConnectionError();
     void cleanupFailure(int error);
+    void noConfigPathSetInEnvironment();
     void nodeMonitorBadPointer(int error);
-    void invalidDisconnection();
-    void registerServiceError(const QString serviceName, int error);
-    void invokeServiceError(const QString serviceName, int error);
     void unknownErrorDuringDisconnection(int error);
     void addConnectionDuplicateFileDescriptorError();
+    void invokeServiceError(const QString serviceName, int error);
+    void registerServiceError(const QString serviceName, int error);
 
     // success signals
     void initSuccess();
-    void newActiveConnection();
     void cleanupSuccess();
     void remoteNodeConnected();
+    void newActiveConnection();
+    void disconnectSuccess(int fd);
     void processInputSuccess(int fd);
     void registerServiceSuccess(const QString serviceName);
     void invokeServiceSuccess(const QString serviceName, const QString parameters);
-    void disconnectSuccess(int fd);
+
+    void signalServicesForNodeCleanup();
 
 private:
 
@@ -116,10 +110,7 @@ private:
     // private methods
     void setupConnections();
     bool addNewConnectionDescriptor(int fd);
-
-private Q_SLOTS:
-    void prepareAndRunRviMonitor();
-
+    void handleMonitorPollingFault(int socket);
 };
 
 QT_END_NAMESPACE

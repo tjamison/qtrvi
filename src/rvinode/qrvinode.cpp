@@ -1,9 +1,9 @@
 #include "qrvinode.h"
 
-#include <QDir>
-#include <QThreadPool>
-
-#include <QDebug>
+#include <QtCore/QDir>
+#include <QtCore/QThreadPool>
+#include <QtCore/QVector>
+#include <QtCore/QDebug>
 
 #include "qrvinodemonitor_p.h"
 
@@ -26,19 +26,19 @@ QRviNode::QRviNode(QObject *parent)
       _confFile(QStringLiteral("")), _nodePort(QStringLiteral("9007")),
       _nodeAddress(QStringLiteral("38.129.64.41"))
 {
-//    setupConnections();
+    //    setupConnections();
 }
 
 void QRviNode::setupConnections()
 {
-//    connect(this, &QRviNode::nodeMonitorBadPointer,
-//            this, &QRviNode::handleRviMonitorFatalError);
+    //    connect(this, &QRviNode::nodeMonitorBadPointer,
+    //            this, &QRviNode::handleRviMonitorFatalError);
 
-//    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
-//            this, &QRviNode::handleRviMonitorFatalError);
+    //    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
+    //            this, &QRviNode::handleRviMonitorFatalError);
 
-//    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
-//            this, &QRviNode::processBytes);
+    //    connect(_monitor, &QRviNodeMonitor::bytesAvailable,
+    //            this, &QRviNode::processBytes);
 }
 
 // Initializer method
@@ -72,12 +72,6 @@ void QRviNode::nodeInit()
 void QRviNode::nodeCleanup()
 {
     int returnVal = 0;
-
-    for (auto * m : _connectionReaderMap)
-        m->stopMonitor();
-
-    // wait 1 second for threads to finish
-    QThreadPool::globalInstance()->waitForDone(1000);
 
     //memory and connections to this handle
     //are cleaned up by rvi_lib
@@ -148,10 +142,17 @@ void QRviNode::nodeDisconnect(int fd)
 
     // take and cleanup the related monitor thread
     auto * m = _connectionReaderMap[fd];
-    m->stopMonitor();
-    delete m;
-    m = Q_NULLPTR;
+    if (m)
+    {
+        m->stopMonitor();
 
+        // wait the timeout length of the monitor thread before deleting
+        QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue());
+        while (QTime::currentTime() < dieTime);
+
+        delete m;
+        m = Q_NULLPTR;
+    }
     // then remove the descriptor map entry
     _connectionReaderMap.remove(fd);
 
@@ -175,12 +176,11 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
 
     int result = 0;
 
+    connect(this, &QRviNode::signalServicesForNodeCleanup,
+            serviceObject, &QRviServiceInterface::handleNodeCleanupSignal);
+
     // save the serviceObject pointer
     _serviceMap[serviceName] = serviceObject;
-
-    // nicely create the char * for service name
-    char * sn = new char[serviceName.length() + 1];
-    qstrcpy(sn, serviceName.toLatin1().data());
 
     CallbackData data(serviceName, this);
 
@@ -206,13 +206,26 @@ void callbackHandler(int fd, void *serviceData, const char *parameters)
 
 void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
 {
-    int result = 0;
     if (serviceName.isEmpty())
     {
         qWarning() << "Error: cannot invoke a service without a service name parameter";
         return;
     }
+
+    int result = 0;
+    QVector<QMutexLocker *> lockers;
+
+    // gather all reader locks
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        lockers.push_back(new QMutexLocker(m->getLock()));
+
+    // now thread safe to invoke write on unknown socket connection
     result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+
+    // release all memory, automatically freeing all locks
+    for (auto * l : lockers)
+        delete l;
+
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviInvokeService call"
@@ -223,17 +236,13 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
     emit invokeServiceSuccess(serviceName, parameters);
 }
 
-// QRviNode::processInput receives the fd notified from the monitor thread
-// so we know the size of the connectionArray is always 1
-//void QRviNode::processBytes(const QByteArray &bytes)
-//{
-
-    /*
+void QRviNode::onReadyRead(int socket)
+{
     // create int* of lenth = 1
     int * connectionArray = (int*)malloc(sizeof(int *));
 
     // assign the only element of connectionArray
-    connectionArray[0] = fd;
+    connectionArray[0] = socket;
 
     int result = rviProcessInput(_rviHandle, connectionArray, 1);
 
@@ -244,10 +253,9 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
         emit processInputError();
         return;
     }
-    emit processInputSuccess(fd);
+    emit processInputSuccess(socket);
     free(connectionArray);
-    */
-//}
+}
 
 QRviServiceInterface * QRviNode::getServiceObjectFromMap(const QString &serviceName)
 {
@@ -308,7 +316,28 @@ void QRviNode::setConfigFile(const QString &file)
 
 QRviNode::~QRviNode()
 {
+    // stop all threads before the nodeCleanup call
+    for (auto * m : _connectionReaderMap)
+    {
+        if (m)
+        {
+            m->stopMonitor();
+
+            // wait the timeout length of the monitor thread before deleting
+            QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue());
+            while (QTime::currentTime() < dieTime);
+
+            delete m;
+            m = Q_NULLPTR;
+        }
+    }
+
+    // short wait time just to make sure everyone has returned
+    QThreadPool::globalInstance()->waitForDone(100);
+
+    _connectionReaderMap.clear();
     this->nodeCleanup();
+    emit signalServicesForNodeCleanup();
 }
 
 /* Private methods */
@@ -332,6 +361,14 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
 
     // pull, prepare, and start current monitor object
     auto * m = _connectionReaderMap[fd];
+
+    // make connections to the current monitor
+    connect(m, &QRviNodeMonitor::readyRead,
+            this, &QRviNode::onReadyRead);
+    connect(m, &QRviNodeMonitor::rviMonitorError,
+            this, &QRviNode::handleRviMonitorError);
+
+    // start the thread
     m->startMonitor();
     QThreadPool::globalInstance()->start(m);
 
@@ -339,42 +376,29 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
     return true;
 }
 
-void QRviNode::handleRviMonitorFatalError(int error)
+/* *
+ * This method switches over the errno result signaled by
+ * the QRviNodeMonitor thread, which provides the associated
+ * socket descriptor and the error code in order to check
+ * which operations should be performed.
+ * */
+void QRviNode::handleRviMonitorError(int socket, int error)
 {
-    qWarning() << "QRviNodeMonitor bombed out with the following code..."
-               << "Error Value: " << error
-               << "Restarting QRviNodeMonitor...";
-
-    // if it still exists, destroy it
-//    if (_monitor)
-//    {
-//        _monitor->stopMonitor();
-//        delete _monitor;
-//        _monitor = Q_NULLPTR;
-//    }
-
-    // recreate a new one
-//    _monitor = new QRviNodeMonitor(this);
-
-    // add all active connections
-//    for (int fd : _activeConnections)
-//        _monitor->addSocketDescriptor(fd);
-
-//    _monitor->startMonitor();
-
-//    QThreadPool::globalInstance()->start(_monitor);
-}
-
-// this method assumes any socket descriptors have already
-// been set before running the _monitor
-void QRviNode::prepareAndRunRviMonitor()
-{
-//    if (!_monitor)
+    switch (error)
     {
-        qWarning() << "Error: unexpected nullptr returned from QRviNodeMonitor"
-                   << "aborting prepareAndRunRviMonitor call...";
-        emit nodeMonitorBadPointer(420);
+    case EFAULT:
+        qWarning() << "Fatal Error: array given as argument to poll()"
+                   << "was not contained in the calling program's address space!";
+        this->nodeDisconnect(socket);
+        break;
+    case EINVAL:
+        // should never see this because we only use poll() on a single socket
+        qWarning() << "Fatal Error: nfds param value exceeds RLIMIT_NOFILE value.";
+        break;
+    case ENOMEM:
+        qWarning() << "Fatal Error: system has no space remaining to allocate"
+                   << "the file descriptor tables!";
+        this->nodeDisconnect(socket);
+        break;
     }
-//    _monitor->startMonitor();
-//    QThreadPool::globalInstance()->start(_monitor);
 }
