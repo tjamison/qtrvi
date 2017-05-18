@@ -4,8 +4,10 @@
 *
 */
 
-#include <QtRviNode/QtRviNode>
 #include <QtQml/qqmlextensionplugin.h>
+#include <QtQml/QQmlEngine>
+
+#include <QtRviNode/QtRviNode>
 
 QT_BEGIN_NAMESPACE
 
@@ -19,6 +21,8 @@ public:
     {
         Q_ASSERT(QLatin1String(uri) == QLatin1String("RviNode"));
 
+        qmlRegisterType<QRviNode>(uri, 1, 0, "RviNode");
+        qmlRegisterUncreatableType<QRviServiceInterface>(uri, 1, 0, "RviServiceInterface", "Pure virtual interface class");
     }
 };
 

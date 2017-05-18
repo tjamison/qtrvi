@@ -231,13 +231,18 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
 
 void QRviNode::onReadyRead(int socket)
 {
+    int result = 0;
+
     // create int* of lenth = 1
     int * connectionArray = (int*)malloc(sizeof(int *));
 
     // assign the only element of connectionArray
     connectionArray[0] = socket;
 
-    int result = rviProcessInput(_rviHandle, connectionArray, 1);
+    {// anonymous scope for QMutexLocker
+        QMutexLocker l(_connectionReaderMap[socket]->getLock());
+        result = rviProcessInput(_rviHandle, connectionArray, 1);
+    }
 
     if (result != 0)
     {

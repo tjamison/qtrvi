@@ -48,7 +48,7 @@ void QRviNodeMonitor::run()
 
     // build pollfd struct
     _readerSocket.fd = _socketDescriptor;
-    _readerSocket.events = POLLIN | POLLPRI;
+    _readerSocket.events = POLLIN;
 
 
     while (_running)
@@ -57,8 +57,10 @@ void QRviNodeMonitor::run()
             QMutexLocker l(_lock);
             result = poll(&_readerSocket, 1, _timeoutValue);
         }
+        if (result == 0)
+            continue; //timeout condition
 
-        if (result == -1)
+        if (result <= -1)
         {
             //just kidding?
             if (errno == EINTR)
@@ -74,10 +76,12 @@ void QRviNodeMonitor::run()
                 break;
             }
         }
-        else if (result == 0)
+        else if (result > 0)
         {
-            // check the _readerSocket.revents values;
-            emit readyRead(_socketDescriptor);
+            if ((_readerSocket.revents & POLLIN) == POLLIN)
+            {
+                emit readyRead(_socketDescriptor);
+            }
         }
     }
 }
