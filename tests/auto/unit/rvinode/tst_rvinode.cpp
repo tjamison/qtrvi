@@ -13,9 +13,15 @@ private slots:
     void cleanupTestCase();
     void cleanup();
 
+    // init interface tests
     void testRviNodeInitWithNoConfigFilePath();
     void testRviNodeInitWithBadConfigFilePath();
     void testRviNodeInitWithGoodConfigFilePath();
+
+    // connect interface tests
+    void testRviNodeConnectWithBadHandle();
+    void testRviNodeConnectWithBadAddress();
+    void testRviNodeConnectSuccessWithDefaultTestServerAddress();
 
 private:
     QRviNode * node;
@@ -56,6 +62,7 @@ void TestQRviNode::testRviNodeInitWithBadConfigFilePath()
     QSignalSpy initErrorSpy(node, &QRviNode::initError);
     QSignalSpy noConfigPathSetSpy(node, &QRviNode::noConfigPathSetInEnvironment);
 
+    // specify some path instead of the file
     qputenv("QT_RVI_NODE_CONFIG_FILE", ".");
 
     node->nodeInit();
@@ -88,6 +95,62 @@ void TestQRviNode::testRviNodeInitWithNoConfigFilePath()
 
     // we should only see the no config path error once
     QCOMPARE(noConfigPathSetSpy.count(), 1);
+}
+
+void TestQRviNode::testRviNodeConnectWithBadHandle()
+{
+    QSignalSpy connectSuccessSpy(node, &QRviNode::remoteNodeConnected);
+    QSignalSpy connectErrorSpy(node, &QRviNode::remoteConnectionError);
+    QSignalSpy invalidHandleSpy(node, &QRviNode::invalidRviHandle);
+
+    // not making call to node init to instigate bad handle scenario
+
+    // call connect with default test server parameters
+    node->nodeConnect();
+
+    QCOMPARE(connectSuccessSpy.count(), 0);
+
+    QCOMPARE(connectErrorSpy.count(), 0);
+
+    QCOMPARE(invalidHandleSpy.count(), 1);
+}
+
+void TestQRviNode::testRviNodeConnectWithBadAddress()
+{
+    QSignalSpy connectSuccessSpy(node, &QRviNode::remoteNodeConnected);
+    QSignalSpy connectErrorSpy(node, &QRviNode::remoteConnectionError);
+    QSignalSpy invalidHandleSpy(node, &QRviNode::invalidRviHandle);
+
+    // call init to prepare the rvi node
+    node->nodeInit();
+
+    // call connect with an address which does not serve an rvi node connection
+    node->nodeConnect("127.0.0.1", "9999");
+
+    QCOMPARE(connectSuccessSpy.count(), 0);
+
+    QCOMPARE(connectErrorSpy.count(), 1);
+
+    QCOMPARE(invalidHandleSpy.count(), 0);
+}
+
+void TestQRviNode::testRviNodeConnectSuccessWithDefaultTestServerAddress()
+{
+    QSignalSpy connectSuccessSpy(node, &QRviNode::remoteNodeConnected);
+    QSignalSpy connectErrorSpy(node, &QRviNode::remoteConnectionError);
+    QSignalSpy invalidHandleSpy(node, &QRviNode::invalidRviHandle);
+
+    // not making call to node init to instigate bad handle scenario
+    node->nodeInit();
+
+    // call connect with default test server parameters
+    node->nodeConnect();
+
+    QCOMPARE(connectSuccessSpy.count(), 1);
+
+    QCOMPARE(connectErrorSpy.count(), 0);
+
+    QCOMPARE(invalidHandleSpy.count(), 0);
 }
 
 void TestQRviNode::cleanupTestCase()

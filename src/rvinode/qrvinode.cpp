@@ -97,15 +97,18 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
         fd = rviConnect(_rviHandle, _nodeAddress.toStdString().c_str(),
                         _nodePort.toStdString().c_str());
         // check for valid file descriptor
-        if (fd < 0)
+        if (fd <= 0)
         {
-            qWarning() << "Error: rviConnect failed to return a valid API handle"
+            qWarning() << "Error: rviConnect failed to return a valid socket descriptor"
                        << "Please check the server address and port"
                        << "Address: " << _nodeAddress << ":" << _nodePort;
             emit remoteConnectionError();
         }
-        if (addNewConnectionDescriptor(fd))
-            emit remoteNodeConnected();
+        else
+        {
+            if (addNewConnectionDescriptor(fd))
+                emit remoteNodeConnected();
+        }
     }
     else
     {
@@ -360,7 +363,7 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
 
     // start the thread
     m->startMonitor();
-    QThreadPool::globalInstance()->start(m);
+//    QThreadPool::globalInstance()->start(m);
 
     emit newActiveConnection();
     return true;

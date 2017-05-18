@@ -46,6 +46,11 @@ void QRviNodeMonitor::run()
 {
     int result = 0;
 
+    // build pollfd struct
+    _readerSocket.fd = _socketDescriptor;
+    _readerSocket.events = POLLIN | POLLPRI;
+
+
     while (_running)
     {
         {// anonymous scope for QMutexLocker
@@ -72,7 +77,7 @@ void QRviNodeMonitor::run()
         else if (result == 0)
         {
             // check the _readerSocket.revents values;
-//            emit readyRead(_socketDescriptor);
+            emit readyRead(_socketDescriptor);
         }
     }
 }
