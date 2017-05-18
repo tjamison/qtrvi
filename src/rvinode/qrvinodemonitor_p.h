@@ -14,9 +14,10 @@
 
 
 // Qt inlcudes
-#include <QMutex>
-#include <QObject>
-#include <QRunnable>
+#include <QtCore/QPair>
+#include <QtCore/QMutex>
+#include <QtCore/QObject>
+#include <QtCore/QRunnable>
 
 // QtRvi includes
 #include "qtrvinode_global.h"
@@ -32,16 +33,20 @@ class Q_QTRVI_EXPORT QRviNodeMonitor : public QObject, public QRunnable
 
 public:
     QRviNodeMonitor(QObject *parent = Q_NULLPTR);
-    QRviNodeMonitor(int fd, QObject *parent = Q_NULLPTR);
+    QRviNodeMonitor(int fd, const QString &address, const QString &port, QObject *parent = Q_NULLPTR);
     ~QRviNodeMonitor();
 
-    void run() override;
+    void run() Q_DECL_OVERRIDE;
 
+    // control thread execution
     void startMonitor();
     void stopMonitor();
 
+    // synchronize with QRviNode user object
     QMutex * getLock();
     int getTimeoutValue() const;
+    QString getAddress() const;
+    QString getPort() const;
 
 Q_SIGNALS:
     void readyRead(int socket);
@@ -54,6 +59,7 @@ private:
     bool       _running;
     QMutex *   _lock;
     int _socketDescriptor;
+    QPair<QString, QString> _socketAddress;
 
     // poll() objects
     struct pollfd _readerSocket;

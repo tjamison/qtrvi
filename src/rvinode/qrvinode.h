@@ -56,8 +56,10 @@ public:
                                      QRviServiceInterface *serviceObject,
                                      void * serviceData = Q_NULLPTR);
     Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
+    Q_INVOKABLE int findAssociatedConnectionId(const QString &address = QString(), const QString &port = QString());
 
 public Q_SLOTS:
+    // socket watcher notifier handler
     void onReadyRead(int socket);
 
     // error handlers
@@ -93,22 +95,27 @@ Q_SIGNALS:
     void registerServiceSuccess(const QString serviceName);
     void invokeServiceSuccess(const QString serviceName, const QString parameters);
 
+    // node signals to affect connected services
     void signalServicesForNodeCleanup();
 
 private:
-
-    QMap<int, QRviNodeMonitor*> _connectionReaderMap;
+    // rvi_lib context handle
     TRviHandle _rviHandle;
 
+    // absolute path to rvi configuration file
     QString _confFile;
-    QString _nodePort;
-    QString _nodeAddress;
 
-    //collection of connected services
+    // collection associating a given socket with it's watcher thread
+    QMap<int, QRviNodeMonitor*> _connectionReaderMap;
+
+    // data members containing open source rvi core test server address
+    QString _testNodePort;
+    QString _testNodeAddress;
+
+    // collection of connected services
     QMap<QString, QRviServiceInterface* > _serviceMap;
 
     // private methods
-    void setupConnections();
     bool addNewConnectionDescriptor(int fd);
     void handleMonitorPollingFault(int socket);
 };

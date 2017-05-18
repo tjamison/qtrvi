@@ -28,10 +28,6 @@ QRviNode::QRviNode(QObject *parent)
 {
 }
 
-void QRviNode::setupConnections()
-{
-}
-
 // Initializer method
 void QRviNode::nodeInit()
 {
@@ -398,5 +394,28 @@ void QRviNode::handleRviMonitorError(int socket, int error)
                    << "the file descriptor tables!";
         this->nodeDisconnect(socket);
         break;
+    }
+}
+
+int QRviNode::findAssociatedConnectionId(const QString &address, const QString &port)
+{
+    // if we only have one active connection, just return that
+    if (_connectionReaderMap.size() == 1)
+    {
+        return _connectionReaderMap.firstKey();
+    }
+
+    // resolve and save values
+    bool noPortParam = port.isEmpty();
+    bool noAddressParam = address.isEmpty();
+
+    // user passed no params, defaulting to rvi test server address
+    if (noPortParam && noAddressParam)
+    {
+
+    }
+    if (port.isEmpty())
+    {
+
     }
 }
