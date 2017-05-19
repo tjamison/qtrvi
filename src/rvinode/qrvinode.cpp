@@ -23,8 +23,8 @@ void callbackHandler(int fd, void *serviceData, const char * parameters);
 // Constructor
 QRviNode::QRviNode(QObject *parent)
     : QObject(parent), _rviHandle(NULL),
-      _confFile(QStringLiteral("")), _nodePort(QStringLiteral("9007")),
-      _nodeAddress(QStringLiteral("38.129.64.41"))
+      _confFile(QStringLiteral("")), _testNodePort(QStringLiteral("9007")),
+      _testNodeAddress(QStringLiteral("38.129.64.41"))
 {
 }
 
@@ -80,29 +80,32 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
 {
     int fd = 0;
 
+    QString tempAddress = _testNodeAddress;
+    QString tempPort = _testNodePort;
+
     // did we get new connection info?
     if (!address.isEmpty())
-        setNodeAddress(address);
+        tempAddress = address;
     if (!port.isEmpty())
-        setNodePort(port);
+        tempPort = port;
 
     // check the handle is valid
     if (_rviHandle)
     {
         // connect to rvi node
-        fd = rviConnect(_rviHandle, _nodeAddress.toStdString().c_str(),
-                        _nodePort.toStdString().c_str());
+        fd = rviConnect(_rviHandle, tempAddress.toStdString().c_str(),
+                        tempPort.toStdString().c_str());
         // check for valid file descriptor
         if (fd <= 0)
         {
             qWarning() << "Error: rviConnect failed to return a valid socket descriptor"
                        << "Please check the server address and port"
-                       << "Address: " << _nodeAddress << ":" << _nodePort;
+                       << "Address: " << _testNodeAddress << ":" << _testNodePort;
             emit remoteConnectionError();
         }
         else
         {
-            if (addNewConnectionDescriptor(fd))
+            if (addNewConnection(fd, tempAddress, tempPort))
                 emit remoteNodeConnected();
         }
     }
@@ -260,38 +263,6 @@ QRviServiceInterface * QRviNode::getServiceObjectFromMap(const QString &serviceN
 
 /* Property methods */
 
-// Returns the string of nodePort
-QString QRviNode::nodePort() const
-{
-    return _nodePort;
-}
-
-// Sets the node port to the new value if it is actually new
-void QRviNode::setNodePort(const QString &port)
-{
-    if (_nodePort != port)
-    {
-        _nodePort = port;
-        emit nodePortChanged();
-    }
-}
-
-// Returns the string of nodeAddress
-QString QRviNode::nodeAddress() const
-{
-    return _nodeAddress;
-}
-
-// Sets the node address to the new ip if it is actually new
-void QRviNode::setNodeAddress(const QString &address)
-{
-    if (_nodeAddress != address)
-    {
-        _nodeAddress = address;
-        emit nodeAddressChanged();
-    }
-}
-
 // Returns the string of the config file
 QString QRviNode::configFile() const
 {
@@ -340,7 +311,7 @@ QRviNode::~QRviNode()
 // checks for duplicate descriptor values, as this should not happen
 // return true if unique descriptor added and notifies
 // return false if unique descriptor added and notifies
-bool QRviNode::addNewConnectionDescriptor(int fd)
+bool QRviNode::addNewConnection(int fd, const QString &address, const QString &port)
 {
     // not allowed to have duplicate descriptors
     if (_connectionReaderMap.contains(fd))
@@ -351,7 +322,7 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
         return false;
     }
 
-    _connectionReaderMap.insert(fd, new QRviNodeMonitor(fd, this));
+    _connectionReaderMap.insert(fd, new QRviNodeMonitor(fd, address, port, this));
 
     // pull, prepare, and start current monitor object
     auto * m = _connectionReaderMap[fd];
@@ -364,7 +335,7 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
 
     // start the thread
     m->startMonitor();
-//    QThreadPool::globalInstance()->start(m);
+    QThreadPool::globalInstance()->start(m);
 
     emit newActiveConnection();
     return true;

@@ -27,8 +27,6 @@ class Q_QTRVI_EXPORT QRviNode : public QObject
     Q_ENUM(ERviStatus)
 
     Q_PROPERTY(QString configFile READ configFile WRITE setConfigFile NOTIFY configFileChanged)
-    Q_PROPERTY(QString nodePort READ nodePort WRITE setNodePort NOTIFY nodePortChanged)
-    Q_PROPERTY(QString nodeAddress READ nodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
 
 public:
 
@@ -38,13 +36,9 @@ public:
     QRviServiceInterface* getServiceObjectFromMap(const QString &serviceName);
 
     // property readers
-    QString nodePort() const;
-    QString nodeAddress() const;
     QString configFile() const;
 
     // property writers
-    void setNodePort(const QString &port);
-    void setNodeAddress(const QString &address);
     void setConfigFile(const QString &file);
 
     // public interface, QML exposed
@@ -67,8 +61,6 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     // property signals
-    void nodePortChanged();
-    void nodeAddressChanged();
     void configFileChanged();
 
     // error signals
@@ -82,8 +74,8 @@ Q_SIGNALS:
     void nodeMonitorBadPointer(int error);
     void unknownErrorDuringDisconnection(int error);
     void addConnectionDuplicateFileDescriptorError();
-    void invokeServiceError(const QString serviceName, int error);
-    void registerServiceError(const QString serviceName, int error);
+    void invokeServiceError(const QString &serviceName, int error);
+    void registerServiceError(const QString &serviceName, int error);
 
     // success signals
     void initSuccess();
@@ -92,8 +84,8 @@ Q_SIGNALS:
     void newActiveConnection();
     void disconnectSuccess(int fd);
     void processInputSuccess(int fd);
-    void registerServiceSuccess(const QString serviceName);
-    void invokeServiceSuccess(const QString serviceName, const QString parameters);
+    void registerServiceSuccess(const QString &serviceName);
+    void invokeServiceSuccess(const QString &serviceName, const QString &parameters);
 
     // node signals to affect connected services
     void signalServicesForNodeCleanup();
@@ -116,7 +108,7 @@ private:
     QMap<QString, QRviServiceInterface* > _serviceMap;
 
     // private methods
-    bool addNewConnectionDescriptor(int fd);
+    bool addNewConnection(int fd, const QString &address, const QString &port);
     void handleMonitorPollingFault(int socket);
 };
 
