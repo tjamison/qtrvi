@@ -47,6 +47,7 @@ public:
     int getTimeoutValue() const;
     QString getAddress() const;
     QString getPort() const;
+    int getSocket() const;
 
 Q_SIGNALS:
     void readyRead(int socket);

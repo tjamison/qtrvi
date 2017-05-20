@@ -116,3 +116,8 @@ QString QRviNodeMonitor::getPort() const
 {
     return _socketAddress.second;
 }
+
+int QRviNodeMonitor::getSocket() const
+{
+    return _socketDescriptor;
+}

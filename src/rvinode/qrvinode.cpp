@@ -281,15 +281,19 @@ void QRviNode::setConfigFile(const QString &file)
 
 QRviNode::~QRviNode()
 {
+    static int counter = 0;
+
+    qDebug() << "------- BEGIN -------- QRviNode::~QRviNode execution count: " << counter++;
+
     // stop all threads before the nodeCleanup call
-    for (auto * m : _connectionReaderMap)
+    for (auto * m : _connectionReaderMap.values())
     {
         if (m)
         {
             m->stopMonitor();
 
             // wait the timeout length of the monitor thread before deleting
-            QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue());
+            QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue() + 1);
             while (QTime::currentTime() < dieTime);
 
             delete m;
@@ -303,6 +307,8 @@ QRviNode::~QRviNode()
     _connectionReaderMap.clear();
     this->nodeCleanup();
     emit signalServicesForNodeCleanup();
+
+    qDebug() << "------- END -------- QRviNode::~QRviNode execution count: " << counter++;
 }
 
 /* Private methods */
@@ -372,21 +378,39 @@ int QRviNode::findAssociatedConnectionId(const QString &address, const QString &
 {
     // if we only have one active connection, just return that
     if (_connectionReaderMap.size() == 1)
-    {
         return _connectionReaderMap.firstKey();
-    }
 
     // resolve and save values
+    int socket = 0;
     bool noPortParam = port.isEmpty();
     bool noAddressParam = address.isEmpty();
 
     // user passed no params, defaulting to rvi test server address
     if (noPortParam && noAddressParam)
     {
-
+        for (auto * m : _connectionReaderMap)
+        {// we're just looking for the test server socket, address compare is enough
+            if (m->getAddress() == _testNodeAddress)
+            {// found the test server, exit loop
+                socket = m->getSocket();
+                break;
+            }
+        }
     }
-    if (port.isEmpty())
-    {
-
+    else
+    {// TODO: do a concat and compare the address:port to ensure unique connection is identified
+        for (auto * m : _connectionReaderMap)
+        {
+            if (m->getAddress() == address)
+            {
+                socket = m->getSocket();
+                break;
+            }
+        }
     }
+    // we found no socket, this is unexpected
+    if (socket == 0) // return invalid socket descriptor
+        socket = -1;
+
+    return socket;
 }

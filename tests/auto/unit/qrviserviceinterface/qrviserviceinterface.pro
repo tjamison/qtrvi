@@ -2,9 +2,9 @@ TEMPLATE = app
 
 QT += core testlib rvinode
 
-TARGET = rvinode-test
+TARGET = qrviserviceinterface-test
 
 CONFIG += testcase
 
 SOURCES += \
-    tst_rvinode.cpp
+    tst_qrviserviceinterface.cpp

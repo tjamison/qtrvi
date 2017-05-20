@@ -1,5 +1,5 @@
 
-enables-tests {
+enable-tests {
     QTRVI_BUILD_PARTS = $$QT_BUILD_PARTS
     QTRVI_BUILD_PARTS *= tests
 }
