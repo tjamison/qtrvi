@@ -4,6 +4,11 @@ enable-tests {
     QTRVI_BUILD_PARTS *= tests
 }
 
+enable-examples {
+    QTRVI_BUILD_PARTS = $$QT_BUILD_PARTS
+    QTRVI_BUILD_PARTS *= examples
+}
+
 !unix:!qnx {
     message(Attempting build on unsupported operating system...)
     message(Currently only Linux and Qnx distributions are supported)

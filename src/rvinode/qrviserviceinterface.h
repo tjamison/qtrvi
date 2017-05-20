@@ -13,6 +13,8 @@ class Q_QTRVI_EXPORT QRviServiceInterface : public QObject
 {
     Q_OBJECT
 
+    Q_DISABLE_COPY(QRviServiceInterface)
+
     Q_PROPERTY(QString serviceName READ serviceName WRITE setServiceName NOTIFY serviceNameChanged)
 
 public:
