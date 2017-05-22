@@ -1,4 +1,6 @@
-QT += gui core rvinode
+TARGET = two-simple-services
+
+QT += core rvinode
 
 TEMPLATE = app
 
@@ -17,6 +19,9 @@ LIBS += -L../../lib
 # to make QtRviNode/... style includes working without installing
 INCLUDEPATH += $$PWD/../../include
 
-target.path = $$[QT_INSTALL_EXAMPLES]/qtrvinode/two-simple-services
-# TODO: add sources install target
-INSTALLS += target
+target.path = $$[QT_INSTALL_EXAMPLES]/two-simple-services
+
+sources.files = $$SOURCES $$HEADERS $$RESOURCES two-simple-services.pro
+sources.path = $$[QT_INSTALL_EXAMPLES]/two-simple-services
+
+INSTALLS += target sources

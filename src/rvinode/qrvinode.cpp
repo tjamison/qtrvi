@@ -76,9 +76,9 @@ void QRviNode::nodeCleanup()
 // Takes address and port as params but default arg is ""
 // uses the existing member values for address/port if no
 // new values are passed to the method
-void QRviNode::nodeConnect(const QString &address, const QString &port)
+int QRviNode::nodeConnect(const QString &address, const QString &port)
 {
-    int fd = 0;
+    int fd = -1;
 
     QString tempAddress = _testNodeAddress;
     QString tempPort = _testNodePort;
@@ -114,6 +114,7 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
         qWarning() << "Error: invalid RviHandle, is the node properly initialized?";
         emit invalidRviHandle();
     }
+    return fd;
 }
 
 // Rvi Node disconnection method
@@ -169,7 +170,7 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
     int result = 0;
 
     connect(this, &QRviNode::signalServicesForNodeCleanup,
-            serviceObject, &QRviServiceInterface::handleNodeCleanupSignal);
+            serviceObject, &QRviServiceInterface::destroyRviService);
 
     // save the serviceObject pointer
     _serviceMap[serviceName] = serviceObject;

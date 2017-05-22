@@ -23,7 +23,7 @@ public:
     ~QRviServiceInterface();
 
     virtual void rviServiceCallback(int fd, void * serviceData, const char * parameters) = 0;
-    virtual void handleNodeCleanupSignal() = 0;
+//    virtual void handleNodeCleanupSignal() = 0;
 
     QString serviceName();
     int getAssociatedConnection() const;
@@ -34,13 +34,15 @@ public:
 Q_SIGNALS:
     void serviceNameChanged();
 
+    void destroyRviService();
+
 private:
     QString _serviceName;
     int _associatedConnection;
 
 };
 
-#define QRviServiceInterface_iid "com.genivi.qtrvi.QRviServiceInterface/1.0"
+#define QRviServiceInterface_iid "com.jlr.qtrvi.QRviServiceInterface/1.0"
 Q_DECLARE_INTERFACE(QRviServiceInterface, QRviServiceInterface_iid)
 
 QT_END_NAMESPACE

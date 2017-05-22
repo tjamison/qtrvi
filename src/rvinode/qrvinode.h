@@ -10,11 +10,6 @@
 #include "qtrvinode_global.h"
 #include "qrviserviceinterface.h"
 
-// TODO:
-// * ) Need to handle cleanup and disconnect conditions
-//     from lib_rvi, currently just getting connected
-//     and handling init/connect related execution cases
-
 QT_BEGIN_NAMESPACE
 
 class QRviNodeMonitor;
@@ -44,7 +39,7 @@ public:
     // public interface, QML exposed
     Q_INVOKABLE void nodeInit();
     Q_INVOKABLE void nodeCleanup();
-    Q_INVOKABLE void nodeConnect(const QString &address = QString(), const QString &port = QString());
+    Q_INVOKABLE int nodeConnect(const QString &address = QString(), const QString &port = QString());
     Q_INVOKABLE void nodeDisconnect(int fd);
     Q_INVOKABLE void registerService(const QString &serviceName,
                                      QRviServiceInterface *serviceObject,

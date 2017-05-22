@@ -1,5 +1,5 @@
 TARGET = QtRviNode
-QT = core core-private
+QT = core
 VERSION = 1.0.0
 
 CMAKE_MODULE_TESTS = '-'
