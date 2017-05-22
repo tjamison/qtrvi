@@ -18,8 +18,8 @@ class Q_QTRVI_EXPORT QRviServiceInterface : public QObject
     Q_PROPERTY(QString serviceName READ serviceName WRITE setServiceName NOTIFY serviceNameChanged)
 
 public:
-    QRviServiceInterface(QObject *parent = Q_NULLPTR);
-    QRviServiceInterface(int socketDescriptor, const QString &name, QObject *parent = Q_NULLPTR);
+    QRviServiceInterface();//QObject *parent = Q_NULLPTR);
+    QRviServiceInterface(int socketDescriptor, const QString &name);//, QObject *parent = Q_NULLPTR);
     ~QRviServiceInterface();
 
     virtual void rviServiceCallback(int fd, void * serviceData, const char * parameters) = 0;

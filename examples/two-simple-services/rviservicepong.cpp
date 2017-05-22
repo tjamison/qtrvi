@@ -1,13 +1,13 @@
 #include "rviservicepong.h"
 
 RviServicePong::RviServicePong()
-    : QRviServiceInterface(this)
+    : QRviServiceInterface()
 {
 
 }
 
 RviServicePong::RviServicePong(int socketDescriptor, const QString &name)
-: QRviServiceInterface(socketDescriptor, name, this)
+: QRviServiceInterface(socketDescriptor, name)
 {
 
 }

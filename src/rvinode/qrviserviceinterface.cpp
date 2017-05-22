@@ -1,15 +1,15 @@
 #include "qrviserviceinterface.h"
 
-QRviServiceInterface::QRviServiceInterface(QObject *parent)
-    : QObject(parent)
+QRviServiceInterface::QRviServiceInterface()
 {
 
 }
 
-QRviServiceInterface::QRviServiceInterface(int socketDescriptor, const QString &name, QObject *parent)
-    : QObject(parent), _serviceName(name), _associatedConnection(socketDescriptor)
+QRviServiceInterface::QRviServiceInterface(int socketDescriptor, const QString &name)
+    : _serviceName(QStringLiteral("")), _associatedConnection(0)
 {
-
+    _associatedConnection = socketDescriptor;
+    _serviceName = name;
 }
 
 QRviServiceInterface::~QRviServiceInterface()

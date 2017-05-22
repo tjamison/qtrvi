@@ -167,7 +167,6 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
 {
     Q_UNUSED(serviceData)
 
-    int result = 0;
 
     connect(this, &QRviNode::signalServicesForNodeCleanup,
             serviceObject, &QRviServiceInterface::destroyRviService);
@@ -177,7 +176,21 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
 
     CallbackData data(serviceName, this);
 
+    int result = 0;
+    QVector<QMutexLocker *> lockers;
+
+    // gather all reader locks
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        lockers.push_back(new QMutexLocker(m->getLock()));
+
     result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, &data);
+
+
+    // release all memory, automatically freeing all locks
+    for (auto * l : lockers)
+        delete l;
+
+
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviRegisterService call"

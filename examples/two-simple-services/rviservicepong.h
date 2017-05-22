@@ -6,7 +6,7 @@
 #include <QtRviNode/QRviServiceInterface>
 
 
-class RviServicePong : public QRviServiceInterface
+class RviServicePong : public QObject, public QRviServiceInterface
 {
     Q_OBJECT
 
