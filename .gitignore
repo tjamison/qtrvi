@@ -26,4 +26,6 @@ qml
 .qmake.cache
 .qmake.stash
 target_wrapper*
-rvinode-test
+qrvinode-test
+qrviserviceinterface-test
+two-simple-services

@@ -16,9 +16,10 @@ QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
     this->setTimeout();
 }
 
-QRviNodeMonitor::QRviNodeMonitor(int fd, QObject *parent)
+QRviNodeMonitor::QRviNodeMonitor(int fd, const QString &address, const QString &port, QObject *parent)
     : QObject(parent), _running(false), _lock(new QMutex()),
-      _socketDescriptor(fd), _readerSocket(), _timeoutValue(0)
+      _socketDescriptor(fd), _socketAddress(qMakePair(address, port)),
+      _readerSocket(), _timeoutValue(0)
 {
     this->setTimeout();
 }
@@ -104,4 +105,19 @@ QMutex * QRviNodeMonitor::getLock()
 int QRviNodeMonitor::getTimeoutValue() const
 {
     return _timeoutValue;
+}
+
+QString QRviNodeMonitor::getAddress() const
+{
+    return _socketAddress.first;
+}
+
+QString QRviNodeMonitor::getPort() const
+{
+    return _socketAddress.second;
+}
+
+int QRviNodeMonitor::getSocket() const
+{
+    return _socketDescriptor;
 }
