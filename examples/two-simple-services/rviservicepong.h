@@ -6,13 +6,14 @@
 #include <QtRviNode/QRviServiceInterface>
 
 
-class RviServicePong : public QObject, public QRviServiceInterface
+class RviServicePong : public QRviServiceInterface
 {
     Q_OBJECT
 
 public:
-    RviServicePong();
-    RviServicePong(int socketDescriptor, const QString &name);
+    RviServicePong(QObject * parent = Q_NULLPTR);
+    RviServicePong(int socketDescriptor, const QString &name, QObject * parent = Q_NULLPTR);
+    ~RviServicePong() Q_DECL_OVERRIDE;
 
     void rviServiceCallback(int fd, void *serviceData, const char *parameters) Q_DECL_OVERRIDE;
 

@@ -174,22 +174,25 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
     // save the serviceObject pointer
     _serviceMap[serviceName] = serviceObject;
 
-    CallbackData data(serviceName, this);
+//    CallbackData data(serviceName, this);
 
     int result = 0;
-    QVector<QMutexLocker *> lockers;
 
-    // gather all reader locks
-    for (QRviNodeMonitor * m : _connectionReaderMap)
-        lockers.push_back(new QMutexLocker(m->getLock()));
+    qDebug() << "QRviNode::registerService prelock()";
 
-    result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, &data);
+//    for (QRviNodeMonitor * m : _connectionReaderMap)
+//        m->getLock()->lock();
 
+    qDebug() << "QRviNode::registerService threads locked";
 
-    // release all memory, automatically freeing all locks
-    for (auto * l : lockers)
-        delete l;
+    result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, serviceObject);
 
+    qDebug() << "QRviNode::registerService post API call";
+
+//    for (QRviNodeMonitor * m : _connectionReaderMap)
+//        m->getLock()->unlock();
+
+    qDebug() << "QRviNode::registerService threads unlocked";
 
     if (result != 0)
     {
@@ -203,7 +206,12 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
 
 void callbackHandler(int fd, void *serviceData, const char *parameters)
 {
-    CallbackData * d = (CallbackData*)serviceData;
+    // serviceData.rviSErviceCallbackmethod(params)
+    // refactor to pass a QRviServiceInterface* through serviceData parameter.
+    qDebug() << "Global rvi_lib callback handler with serviceData& =>" << serviceData;
+    CallbackData * d = (CallbackData *)serviceData;
+    qDebug() << "CallbackData::serviceName: " << d->_serviceName;
+    qDebug() << "CallbackData::nodeAddress: " << d->_node;
     d->_node->getServiceObjectFromMap(d->_serviceName)
             ->rviServiceCallback(fd,
                                  serviceData,
@@ -219,18 +227,23 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
     }
 
     int result = 0;
-    QVector<QMutexLocker *> lockers;
 
-    // gather all reader locks
-    for (QRviNodeMonitor * m : _connectionReaderMap)
-        lockers.push_back(new QMutexLocker(m->getLock()));
+    qDebug() << "QRviNode::invokeService prelock() with service: " << serviceName;
+
+//    for (QRviNodeMonitor * m : _connectionReaderMap)
+//        m->getLock()->lock();
+
+    qDebug() << "QRviNode::invokeService threads locked";
 
     // now thread safe to invoke write on unknown socket connection
     result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
 
-    // release all memory, automatically freeing all locks
-    for (auto * l : lockers)
-        delete l;
+    qDebug() << "QRviNode::invokeService post API call";
+
+//    for (QRviNodeMonitor * m : _connectionReaderMap)
+//        m->getLock()->unlock();
+
+    qDebug() << "QRviNode::invokeService threads unlocked";
 
     if (result != 0)
     {

@@ -81,6 +81,7 @@ void QRviNodeMonitor::run()
         {
             if ((_readerSocket.revents & POLLIN) == POLLIN)
             {
+                qDebug() << "QRviNodeMonitor::run() emitting readyRead() signal";
                 emit readyRead(_socketDescriptor);
             }
         }
