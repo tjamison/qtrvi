@@ -1,33 +1,42 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
 #include "qrvinodemonitor_p.h"
 
 // Qt includes
-#include <QDebug>
-#include <QMutexLocker>
-#include <QTime>
-#include <QCoreApplication>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDebug>
 
-#include <stdio.h>
-#include <errno.h>
-#include "time.h"
+// system includes
+#include <sys/errno.h>
 
 QRviNodeMonitor::QRviNodeMonitor(QObject *parent)
-    : QObject(parent), _running(false), _lock(new QMutex())
+    : QObject(parent), _running(false),
+      _lock(new QMutex()), _socketDescriptor(0),
+      _readerSocket(), _timeoutValue(0), _isNodeReading(false)
 {
-    qDebug() << "Constructing a new node monitor.";
-    //init the fd_set of sockets
-    FD_ZERO(&_readerSockets);
-    _maxFd = 0;
+    this->resetTimeout();
+}
+
+QRviNodeMonitor::QRviNodeMonitor(int fd, const QString &address, const QString &port, QObject *parent)
+    : QObject(parent), _running(false), _lock(new QMutex()),
+      _socketDescriptor(fd), _socketAddress(qMakePair(address, port)),
+      _readerSocket(), _timeoutValue(0), _isNodeReading(false)
+{
+    this->resetTimeout();
 }
 
 QRviNodeMonitor::~QRviNodeMonitor()
 {
     // stop the loop
     _running = false;
-
-    // clear reader sockets
-    FD_ZERO(&_readerSockets);
-
-    qDebug() << "Just cleared the sockets. Value now? " << _maxFd;
 
     // _mutex should not be locked, safe to delete
     if (_lock)
@@ -39,42 +48,55 @@ QRviNodeMonitor::~QRviNodeMonitor()
 
 void QRviNodeMonitor::run()
 {
-    int selectVal = 0;
-    int msToWait = 200;
+    int result = 0;
 
-    qWarning() << "QRviNodeMonitor thread running...";
+    // build pollfd struct
+    _readerSocket.fd = _socketDescriptor;
+    _readerSocket.events = POLLIN;
 
     while (_running)
     {
-        selectVal = select(_maxFd + 1, &_readerSockets, NULL, NULL, NULL); // no timeout, block until read is available
-        if (selectVal == -1)
-        {
-            //just kidding?
-            if (errno == EINTR)
+        if (_lock->tryLock(100))
+        {// we will try to get data for the time specified by timeout
+            qDebug() << "QRviNodeMonitor::run() acquired the _lock";
+            result = poll(&_readerSocket, 1, _timeoutValue);
+            _lock->unlock();// lock will be held no longer than _timeoutValue
+            qDebug() << "QRviNodeMonitor::run() released the _lock";
+
+            if (result == 0)
+                continue;// timeout condition
+
+            if (result <= -1)
             {
-                continue;
+                if (errno == EINTR)
+                {// just kidding?
+                    continue;
+                }
+                else
+                {// actual error
+                    perror("QRviNodeMonitor::run select call error");
+                    this->stopMonitor();
+                    emit rviMonitorError(_socketDescriptor, errno);
+                    break;
+                }
             }
-            else
-            {
-                //actual error
-                perror("QRviNodeMonitor::run select call error");
-                _running = false;
-                emit rviMonitorFatalError(errno);
-                break;
+            else if (result > 0)
+            {// _readerSocket has something interesting to say
+                if ((_readerSocket.revents & POLLIN) == POLLIN)
+                {
+                    qDebug() << "QRviNodeMonitor::run() emitting readyRead() signal";
+                    _isNodeReading = true;
+                    emit readyRead(_socketDescriptor);
+                }
             }
         }
-
-        for (int fd : _fdList)
-        {
-            if (FD_ISSET(fd, &_readerSockets))
-            {
-                emit rviReadyRead(fd);
-            }
-        }
-
-        QTime dieTime = QTime::currentTime().addMSecs(msToWait);
-        while (QTime::currentTime() < dieTime);
     }
+}
+
+void QRviNodeMonitor::resetTimeout()
+{
+    /* Timeout value provided to poll() based on milliseconds */
+    _timeoutValue = (5);
 }
 
 void QRviNodeMonitor::startMonitor()
@@ -87,11 +109,32 @@ void QRviNodeMonitor::stopMonitor()
     _running = false;
 }
 
-void QRviNodeMonitor::addSocketDescriptor(int fd)
+QMutex * QRviNodeMonitor::getLock()
 {
-    QMutexLocker l(_lock);
-    _fdList.append(fd);
-    FD_SET(fd, &_readerSockets);
-    if (fd > _maxFd)
-        _maxFd = fd;
+    return _lock;
+}
+
+int QRviNodeMonitor::getTimeoutValue() const
+{
+    return _timeoutValue;
+}
+
+QString QRviNodeMonitor::getAddress() const
+{
+    return _socketAddress.first;
+}
+
+QString QRviNodeMonitor::getPort() const
+{
+    return _socketAddress.second;
+}
+
+int QRviNodeMonitor::getSocket() const
+{
+    return _socketDescriptor;
+}
+
+void QRviNodeMonitor::handleNodeDoneReading()
+{
+    _isNodeReading = false;
 }

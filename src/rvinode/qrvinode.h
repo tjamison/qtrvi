@@ -1,3 +1,14 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
+
 #ifndef QRVINODE_H
 #define QRVINODE_H
 
@@ -8,12 +19,19 @@
 #include <rvi.h>
 
 #include "qtrvinode_global.h"
-#include "qrviserviceobject.h"
+#include "qrviserviceinterface.h"
 
-// TODO:
-// * ) Need to handle cleanup and disconnect conditions
-//     from lib_rvi, currently just getting connected
-//     and handling init/connect related execution cases
+/*************************
+ *
+ * Note and TODO: Currently this library
+ * contains an annoying race condition which
+ * is largely the result of the wrapper over rvi_lib
+ * which shares resource access with QtRvi and was
+ * not written to be thread safe
+ *
+ * Issue #1: Reimplement rvi client protocol entirely in C++
+ *
+ **************************/
 
 QT_BEGIN_NAMESPACE
 
@@ -27,105 +45,83 @@ class Q_QTRVI_EXPORT QRviNode : public QObject
     Q_ENUM(ERviStatus)
 
     Q_PROPERTY(QString configFile READ configFile WRITE setConfigFile NOTIFY configFileChanged)
-    Q_PROPERTY(QString nodePort READ nodePort WRITE setNodePort NOTIFY nodePortChanged)
-    Q_PROPERTY(QString nodeAddress READ nodeAddress WRITE setNodeAddress NOTIFY nodeAddressChanged)
 
 public:
 
     QRviNode(QObject *parent = Q_NULLPTR);
     ~QRviNode();
 
-    /** Function signature for RVI callback functions */
-    /*typedef void (*TRviCallback) ( int fd,
-    *                                void* serviceData,
-    *                                const char *parameters
-    *                              );
-    **/
-    // singleton pattern due to callback function
-    // used by the rviRegisterService call
-    static QRviNode * getInstance();
-    static void callbackHandler(int fd, void * serviceData, const char * parameters);
-    QRviServiceObject* getServiceObjectFromMap(const QString &serviceName);
-    QList<int> * activeConnections();
-
     // property readers
-    QString nodePort() const;
-    QString nodeAddress() const;
     QString configFile() const;
 
     // property writers
-    void setNodePort(const QString &port);
-    void setNodeAddress(const QString &address);
     void setConfigFile(const QString &file);
 
     // public interface, QML exposed
     Q_INVOKABLE void nodeInit();
     Q_INVOKABLE void nodeCleanup();
-    Q_INVOKABLE void nodeConnect(const QString &address = QString(), const QString &port = QString());
     Q_INVOKABLE void nodeDisconnect(int fd);
-    Q_INVOKABLE void registerService(const QString &serviceName,
-                                     QRviServiceObject *serviceObject,
-                                     void * serviceData = Q_NULLPTR);
-    Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString("{}"));
+    Q_INVOKABLE int nodeConnect(const QString &address = QString(), const QString &port = QString());
+    Q_INVOKABLE void registerService(const QString &serviceName, QRviServiceInterface *serviceObject);
+    Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
+    Q_INVOKABLE int findAssociatedConnectionId(const QString &address = QString(), const QString &port = QString());
 
 public Q_SLOTS:
-    // success handlers
-    void processInput(int fd);
+    // socket watcher notifier handler
+    void onReadyRead(int socket);
 
     // error handlers
-    void handleRviMonitorFatalError(int error);
+    void handleRviMonitorError(int socket, int error);
 
 Q_SIGNALS:
     // property signals
-    void nodePortChanged();
-    void nodeAddressChanged();
     void configFileChanged();
 
     // error signals
     void initError();
     void invalidRviHandle();
     void processInputError();
-    void noConfigPathSetInEnvironment();
+    void invalidDisconnection();
     void remoteConnectionError();
     void cleanupFailure(int error);
+    void noConfigPathSetInEnvironment();
     void nodeMonitorBadPointer(int error);
-    void invalidDisconnection();
-    void registerServiceError(const QString serviceName, int error);
-    void invokeServiceError(const QString serviceName, int error);
     void unknownErrorDuringDisconnection(int error);
     void addConnectionDuplicateFileDescriptorError();
+    void invokeServiceError(const QString &serviceName, int error);
+    void registerServiceError(const QString &serviceName, int error);
 
     // success signals
     void initSuccess();
-    void newActiveConnection();
     void cleanupSuccess();
     void remoteNodeConnected();
-    void processInputSuccess(int fd);
-    void registerServiceSuccess(const QString serviceName);
-    void invokeServiceSuccess(const QString serviceName, const QString parameters);
+    void newActiveConnection();
     void disconnectSuccess(int fd);
+    void processInputSuccess(int fd);
+    void registerServiceSuccess(const QString &serviceName);
+    void invokeServiceSuccess(const QString &serviceName, const QString &parameters);
+
+    // node signals to affect connected services
+    void signalServicesForNodeCleanup();
+    void signalMonitorForDoneReading();
 
 private:
-
-    QList<int> _activeConnections;
+    // rvi_lib context handle
     TRviHandle _rviHandle;
 
+    // absolute path to rvi configuration file
     QString _confFile;
-    QString _nodePort;
-    QString _nodeAddress;
 
-    QRviNodeMonitor * _monitor;
+    // collection associating a given socket with it's watcher thread
+    QMap<int, QRviNodeMonitor*> _connectionReaderMap;
 
-    //collection of connected services
-    QMap<QString, QRviServiceObject* > _serviceMap;
+    // data members containing open source rvi core test server address
+    QString _testNodePort;
+    QString _testNodeAddress;
 
     // private methods
-    void setupConnections();
-    bool addNewConnectionDescriptor(int fd);
-
-private Q_SLOTS:
-    void prepareAndRunRviMonitor();
-
+    bool addNewConnection(int fd, const QString &address, const QString &port);
+    void handleMonitorPollingFault(int socket);
 };
 
 QT_END_NAMESPACE
