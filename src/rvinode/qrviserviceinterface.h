@@ -1,3 +1,13 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
 #ifndef QRVISERVICEINTERFACE_H
 #define QRVISERVICEINTERFACE_H
 
@@ -16,6 +26,7 @@ class Q_QTRVI_EXPORT QRviServiceInterface : public QObject
     Q_DISABLE_COPY(QRviServiceInterface)
 
     Q_PROPERTY(QString serviceName READ serviceName WRITE setServiceName NOTIFY serviceNameChanged)
+    Q_PROPERTY(int socket READ getAssociatedConnection WRITE setSocketDescriptor NOTIFY socketChanged)
 
 public:
     QRviServiceInterface(QObject *parent = Q_NULLPTR);
@@ -31,6 +42,7 @@ public:
     void setSocketDescriptor(int socket);
 
 Q_SIGNALS:
+    void socketChanged();
     void serviceNameChanged();
 
     void destroyRviService();

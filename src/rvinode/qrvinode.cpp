@@ -1,24 +1,24 @@
-#include "qrvinode.h"
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
 
+#include "qrvinode.h"
+#include "qrvinodemonitor_p.h"
+
+// Qt includes
 #include <QtCore/QDir>
 #include <QtCore/QThreadPool>
 #include <QtCore/QVector>
 #include <QtCore/QDebug>
 
-#include "qrvinodemonitor_p.h"
-
-/** start rvi_lib callback helpers **/
-typedef struct CallbackData {
-    QString _serviceName;
-    QRviNode * _node;
-
-    CallbackData(const QString &name, QRviNode * node)
-        : _serviceName(name), _node(node) {}
-
-} CallbackData;
-
+/** rvi_lib callback **/
 void callbackHandler(int fd, void *serviceData, const char * parameters);
-/** end rvi_lib callback helpers **/
 
 // Constructor
 QRviNode::QRviNode(QObject *parent)
@@ -163,36 +163,40 @@ void QRviNode::nodeDisconnect(int fd)
     emit disconnectSuccess(fd);
 }
 
-void QRviNode::registerService(const QString &serviceName, QRviServiceInterface *serviceObject, void *serviceData)
+void QRviNode::registerService(const QString &serviceName, QRviServiceInterface *serviceObject)
 {
-    Q_UNUSED(serviceData)
-
+    bool firstServiceOnNode = true;
 
     connect(this, &QRviNode::signalServicesForNodeCleanup,
             serviceObject, &QRviServiceInterface::destroyRviService);
 
-    // save the serviceObject pointer
-    _serviceMap[serviceName] = serviceObject;
-
-//    CallbackData data(serviceName, this);
-
     int result = 0;
 
-    qDebug() << "QRviNode::registerService prelock()";
 
-//    for (QRviNodeMonitor * m : _connectionReaderMap)
-//        m->getLock()->lock();
-
-    qDebug() << "QRviNode::registerService threads locked";
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode != true)
+    {
+        qDebug() << "QRviNode::registerService prelock()";
+        for (QRviNodeMonitor * m : _connectionReaderMap)
+            m->getLock()->lock();
+    }
+    qDebug() << "QRviNode::registerService node descriptors locked";
 
     result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, serviceObject);
 
-    qDebug() << "QRviNode::registerService post API call";
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode == true)
+        firstServiceOnNode = false;
 
-//    for (QRviNodeMonitor * m : _connectionReaderMap)
-//        m->getLock()->unlock();
+    qDebug() << "QRviNode::registerService post API call, unlocking";
 
-    qDebug() << "QRviNode::registerService threads unlocked";
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode != true)
+    {
+        for (QRviNodeMonitor * m : _connectionReaderMap)
+            m->getLock()->unlock();
+        qDebug() << "QRviNode::registerService threads unlocked";
+    }
 
     if (result != 0)
     {
@@ -204,18 +208,16 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceInterface 
     emit registerServiceSuccess(serviceName);
 }
 
+
+// void *serviceData parameter contains the QRviServiceInterface* to invoke
 void callbackHandler(int fd, void *serviceData, const char *parameters)
 {
-    // serviceData.rviSErviceCallbackmethod(params)
-    // refactor to pass a QRviServiceInterface* through serviceData parameter.
-    qDebug() << "Global rvi_lib callback handler with serviceData& =>" << serviceData;
-    CallbackData * d = (CallbackData *)serviceData;
-    qDebug() << "CallbackData::serviceName: " << d->_serviceName;
-    qDebug() << "CallbackData::nodeAddress: " << d->_node;
-    d->_node->getServiceObjectFromMap(d->_serviceName)
-            ->rviServiceCallback(fd,
-                                 serviceData,
-                                 parameters);
+    // TODO: Jack Sanchez 22 May 2017
+    // This feels very hacky because it gives the user a pointer to themselves
+    // and is something which can be fixed with the C++ reimplementation of:
+    // https://github.com/GENIVI/rvi_core/blob/develop/doc/rvi_protocol.md
+    QRviServiceInterface * service = (QRviServiceInterface*)serviceData;
+    service->rviServiceCallback(fd, serviceData, parameters);
 }
 
 void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
@@ -230,8 +232,8 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
 
     qDebug() << "QRviNode::invokeService prelock() with service: " << serviceName;
 
-//    for (QRviNodeMonitor * m : _connectionReaderMap)
-//        m->getLock()->lock();
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        m->getLock()->lock();
 
     qDebug() << "QRviNode::invokeService threads locked";
 
@@ -240,8 +242,8 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
 
     qDebug() << "QRviNode::invokeService post API call";
 
-//    for (QRviNodeMonitor * m : _connectionReaderMap)
-//        m->getLock()->unlock();
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        m->getLock()->unlock();
 
     qDebug() << "QRviNode::invokeService threads unlocked";
 
@@ -269,6 +271,7 @@ void QRviNode::onReadyRead(int socket)
         QMutexLocker l(_connectionReaderMap[socket]->getLock());
         result = rviProcessInput(_rviHandle, connectionArray, 1);
     }
+    emit signalMonitorForDoneReading();
 
     if (result != 0)
     {
@@ -279,13 +282,6 @@ void QRviNode::onReadyRead(int socket)
     }
     emit processInputSuccess(socket);
     free(connectionArray);
-}
-
-QRviServiceInterface * QRviNode::getServiceObjectFromMap(const QString &serviceName)
-{
-    if (_serviceMap.contains(serviceName))
-        return _serviceMap[serviceName];
-    return Q_NULLPTR;
 }
 
 /* Property methods */
@@ -365,6 +361,8 @@ bool QRviNode::addNewConnection(int fd, const QString &address, const QString &p
             this, &QRviNode::onReadyRead);
     connect(m, &QRviNodeMonitor::rviMonitorError,
             this, &QRviNode::handleRviMonitorError);
+    connect(this, &QRviNode::signalMonitorForDoneReading,
+            m, &QRviNodeMonitor::handleNodeDoneReading);
 
     // start the thread
     m->startMonitor();

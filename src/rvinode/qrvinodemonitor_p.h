@@ -1,17 +1,15 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
 #ifndef QRVINODEMONITOR_H
 #define QRVINODEMONITOR_H
-
-/*******************************************************
- *          %****    PRIVATE CLASS   ****%
- * Note: This class is not part of the public interface
- * for QtRviNode. The details of this relationship may
- * change or disappear at any time for any reason and
- * will not impact the public API for a QRviNode object.
- *
- * We mean it.
- *
-********************************************************/
-
 
 // Qt inlcudes
 #include <QtCore/QPair>
@@ -25,9 +23,20 @@
 // system includes
 #include <sys/poll.h>
 
+
+/*******************************************************
+ *          %****    PRIVATE CLASS   ****%
+ * Note: This class is not part of the public interface
+ * for QtRviNode. The details of this relationship may
+ * change or disappear at any time for any reason and
+ * will not impact the public API for a QRviNode object.
+ *
+ * We mean it.
+ *
+********************************************************/
 QT_BEGIN_NAMESPACE
 
-class Q_QTRVI_EXPORT QRviNodeMonitor : public QObject, public QRunnable
+class QRviNodeMonitor : public QObject, public QRunnable
 {
     Q_OBJECT
 
@@ -49,6 +58,9 @@ public:
     QString getPort() const;
     int getSocket() const;
 
+public Q_SLOTS:
+    void handleNodeDoneReading();
+
 Q_SIGNALS:
     void readyRead(int socket);
 
@@ -66,7 +78,10 @@ private:
     struct pollfd _readerSocket;
     int _timeoutValue;
 
-    void setTimeout();
+    // node sync boolean
+    bool _isNodeReading;
+
+    void resetTimeout();
 };
 
 QT_END_NAMESPACE

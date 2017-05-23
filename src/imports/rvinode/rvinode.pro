@@ -3,7 +3,7 @@ TARGET = rvinodeplugin
 TARGETPATH = RviNode
 IMPORT_VERSION = 1.0
 
-QT += qml quick rvinode
+QT += core qml quick rvinode
 
 CONFIG += qt plugin c++11
 

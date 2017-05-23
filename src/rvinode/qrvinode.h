@@ -1,3 +1,14 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
+
 #ifndef QRVINODE_H
 #define QRVINODE_H
 
@@ -9,6 +20,18 @@
 
 #include "qtrvinode_global.h"
 #include "qrviserviceinterface.h"
+
+/*************************
+ *
+ * Note and TODO: Currently this library
+ * contains an annoying race condition which
+ * is largely the result of the wrapper over rvi_lib
+ * which shares resource access with QtRvi and was
+ * not written to be thread safe
+ *
+ * Issue #1: Reimplement rvi client protocol entirely in C++
+ *
+ **************************/
 
 QT_BEGIN_NAMESPACE
 
@@ -28,8 +51,6 @@ public:
     QRviNode(QObject *parent = Q_NULLPTR);
     ~QRviNode();
 
-    QRviServiceInterface* getServiceObjectFromMap(const QString &serviceName);
-
     // property readers
     QString configFile() const;
 
@@ -39,11 +60,9 @@ public:
     // public interface, QML exposed
     Q_INVOKABLE void nodeInit();
     Q_INVOKABLE void nodeCleanup();
-    Q_INVOKABLE int nodeConnect(const QString &address = QString(), const QString &port = QString());
     Q_INVOKABLE void nodeDisconnect(int fd);
-    Q_INVOKABLE void registerService(const QString &serviceName,
-                                     QRviServiceInterface *serviceObject,
-                                     void * serviceData = Q_NULLPTR);
+    Q_INVOKABLE int nodeConnect(const QString &address = QString(), const QString &port = QString());
+    Q_INVOKABLE void registerService(const QString &serviceName, QRviServiceInterface *serviceObject);
     Q_INVOKABLE void invokeService(const QString &serviceName, const QString &parameters = QString(QStringLiteral("{}")));
     Q_INVOKABLE int findAssociatedConnectionId(const QString &address = QString(), const QString &port = QString());
 
@@ -84,6 +103,7 @@ Q_SIGNALS:
 
     // node signals to affect connected services
     void signalServicesForNodeCleanup();
+    void signalMonitorForDoneReading();
 
 private:
     // rvi_lib context handle
@@ -98,9 +118,6 @@ private:
     // data members containing open source rvi core test server address
     QString _testNodePort;
     QString _testNodeAddress;
-
-    // collection of connected services
-    QMap<QString, QRviServiceInterface* > _serviceMap;
 
     // private methods
     bool addNewConnection(int fd, const QString &address, const QString &port);

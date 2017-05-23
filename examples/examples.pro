@@ -1,4 +1,5 @@
 TEMPLATE = subdirs
 
 SUBDIRS += \
-    two-simple-services
+    rviserviceping \
+    rviservicepong

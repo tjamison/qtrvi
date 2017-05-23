@@ -1,10 +1,19 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
 #include <QtCore/QCoreApplication>
 #include <QtCore/QObject>
 #include <QDebug>
 
 #include <QtRviNode/QRviNode>
 
-#include "rviserviceping.h"
 #include "rviservicepong.h"
 
 int main(int argc, char * argv[])
@@ -38,8 +47,6 @@ int main(int argc, char * argv[])
 
     int socket = node.nodeConnect();
 
-    RviServicePing * pinger = new RviServicePing(socket, "pinger");
-
     RviServicePong * ponger = new RviServicePong(socket, "ponger");
 
     // Connect to service invoke service signals
@@ -48,21 +55,19 @@ int main(int argc, char * argv[])
         qDebug() << "Currently, rvi_lib does not support local service invokations."
                  << "This error signal signifies success.";
     });
+    QObject::connect(&node, &QRviNode::invokeServiceSuccess,
+                     []() {
+        qDebug() << "Successfully invoked the pinger service!";
+    });
 
     // Connect to service destroy signals
-    QObject::connect(pinger, &RviServicePing::destroyRviService,
-                     [&]() {
-        delete pinger;
-    });
     QObject::connect(ponger, &RviServicePong::destroyRviService,
                      [&]() {
         delete ponger;
     });
 
-    node.registerService(pinger->serviceName(), pinger);
     node.registerService(ponger->serviceName(), ponger);
 
-    node.invokeService(servicePrefix + pinger->serviceName());
     node.invokeService(servicePrefix + ponger->serviceName());
 
     qDebug() << "Program counter: " << counter++;

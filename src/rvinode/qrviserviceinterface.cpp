@@ -1,3 +1,13 @@
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
+
 #include "qrviserviceinterface.h"
 
 QRviServiceInterface::QRviServiceInterface(QObject * parent)
@@ -40,5 +50,9 @@ int QRviServiceInterface::getAssociatedConnection() const
 
 void QRviServiceInterface::setSocketDescriptor(int socket)
 {
-    _associatedConnection = socket;
+    if (_associatedConnection != socket)
+    {
+        _associatedConnection = socket;
+        emit socketChanged();
+    }
 }

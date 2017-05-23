@@ -1,11 +1,25 @@
-/*
-*
-* (C) 2017 Jaguar Land Rover
-*
-*/
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
 
-#include <QtQml/qqmlextensionplugin.h>
-#include <QtQml/QQmlEngine>
+
+// TODO: Jack Sanchez 22 May 2017
+//
+// Need to track down the specific modules which provide
+// the type registration methods. It seems that they moved in 5.7
+
+//#if (QT_VERSION >= QT_VERSION_CHECK(5, 7, 0))
+//    #include <QtQml/qqmlextensionplugin.h>
+//    #include <QtQml/QQmlEngine>
+//#elif (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0))
+    #include <QtQml>
+//#endif
 
 #include <QtRviNode/QtRviNode>
 
