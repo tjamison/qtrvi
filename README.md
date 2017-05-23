@@ -14,9 +14,7 @@ Jack Sanchez - <jsanche4@jaguarlandrover.com>
 Tatiana Jamison - <tjamison@jaguarlandrover.com>
 
 This program is licensed under the terms and conditions of the
-
 Mozilla Public License, version 2.0. The full text of the
-
 Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
 
 
@@ -59,15 +57,11 @@ Note: Due to the current limitation of rvi_lib, a given service cannot invoke an
 Ex 1)
 
 rviserviceping:
-
-This example intends to demonstrate the minimal amount of QML required to implement an RVI service.
-
-Functions as the user application to instigate behavior on the rviservicepong example application.
+* This example intends to demonstrate the minimal amount of QML required to implement an RVI service.
+* Functions as the user application to instigate behavior on the rviservicepong example application.
 
 Ex 2)
 
 rviservicepong:
-
-This example intends to demonstrate the minimal amount of C++ required to implement an Rvi Service.
-
-Functions as a command line application waiting for input from the rviserviceping user application.
+* This example intends to demonstrate the minimal amount of C++ required to implement an Rvi Service.
+* Functions as a command line application waiting for input from the rviserviceping user application.
