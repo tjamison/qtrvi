@@ -28,4 +28,6 @@ qml
 target_wrapper*
 qrvinode-test
 qrviserviceinterface-test
-two-simple-services
+rviserviceping
+rviservicepong
+.rcc
