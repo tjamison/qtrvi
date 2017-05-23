@@ -1,28 +1,46 @@
-Module:
+# QtRvi
+Qt Library for Remote Vehicle Interaction
+
+Purpose:
 -----------------
-This project is intended to be a Qtified library for JLR's RVI protocol.
+Qt wrapper to create an event driven interface for an application developer to easily integrate GENIVI's RVI protocol into C++ and/or QML applications.
 
-
-Copyright:
+Copyright and Authors:
 ----------------
-For the moment, this project is entirely internal.
-My goal is to integrate this QtRvi module into the Qt Playground and start working towards potential integration with either Qt5 mainline or Qt Automotive Suite.
+(C) 2017 Jaguar Land Rover - All rights reserved.
+
+Jack Sanchez - <jsanche4@jaguarlandrover.com>
+Tatiana Jamison - <tjamison@jaguarlandrover.com>
+
+This program is licensed under the terms and conditions of the
+Mozilla Public License, version 2.0. The full text of the
+Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
 
 
 Dependencies:
 ---------------
-This project depends on the QtBase module and generally requires Qt 5.7+ to be installed.
-This project will use C++11 constructs and will require a supported compiler (which is enforced by Qt 5.7)
+Minimum tested Qt version is currently 5.6.2, it is likely the module can be easily backported to older versions.
+
+Requires rvi_lib <https://github.com/GENIVI/rvi_lib> to be installed
+
+Also requires a C++11 compliant compiler
+
 
 Features:
 --------------
-* QRviNode client interface (both C++ and QML) for registration with a remote RVI node
-* QRviServiceObject interface (both C++ and QML) for registering services with your QRviNode
+* QRviNode (C++ and QML) for creating connections to RVI nodes
+* QRviServiceInterface (C++ and QML) for registering services with your QRviNode
 
 
 Building:
 ---------------
-This module will follow basic Qt module build steps:
+Currently QtRvi expects for two environment variables to be defined which point to the installation location path of your rvi_lib:
+```
+RVI_INCLUDE_PATH
+RVI_LIB_PATH
+```
+
+Then this module will follow basic Qt module build steps:
 ```
 qmake
 make
@@ -31,13 +49,16 @@ make install
 
 The module will be deployed to the location of the Qt SDK referenced by your qmake used during the build phase.
 
-
-Timeline:
+Examples:
 ---------------
-Initially this module will wrap the C implementation, rvi_lib, found here: https://github.com/GENIVI/rvi_lib
+Note: Due to the current limitation of rvi_lib, a given service cannot invoke another service which is registered on the same QRviNode.
 
-Over time I intend to implement the RVI protocol within this project where the QtRviNode can leverage the work done in the QSslSocket component.
+Ex 1)
+rviserviceping:
+This example intends to demonstrate the minimal amount of QML required to implement an RVI service.
+Functions as the user application to instigate behavior on the rviservicepong example application.
 
-Also, I intend to investigate a Qtified wrapper and/or interface to rvi_core, found here: https://github.com/GENIVI/rvi_core
-
-For questions and concerns, please contact Jack Sanchez <jsanche4@jaguarlandrover.com>
+Ex 2)
+rviservicepong:
+This example intends to demonstrate the minimal amount of C++ required to implement an Rvi Service.
+Functions as a command line application waiting for input from the rviserviceping user application.

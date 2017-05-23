@@ -25,3 +25,9 @@ qml
 *.version**
 .qmake.cache
 .qmake.stash
+target_wrapper*
+qrvinode-test
+qrviserviceinterface-test
+rviserviceping
+rviservicepong
+.rcc

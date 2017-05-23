@@ -1,34 +1,43 @@
-#include "qrvinode.h"
+/*****************************************************************
+ *
+ * (C) 2017 Jaguar Land Rover - All Rights Reserved
+ *
+ * This program is licensed under the terms and conditions of the
+ * Mozilla Public License, version 2.0.  The full text of the
+ * Mozilla Public License is at https://www.mozilla.org/MPL/2.0/
+ *
+******************************************************************/
 
+#include "qrvinode.h"
 #include "qrvinodemonitor_p.h"
 
 // Qt includes
-#include <QDir>
-#include <QThreadPool>
+#include <QtCore/QDir>
+#include <QtCore/QThreadPool>
+#include <QtCore/QVector>
+#include <QtCore/QDebug>
 
-#include <QDebug>
-
-/* Public methods */
+/** rvi_lib callback **/
+void callbackHandler(int fd, void *serviceData, const char * parameters);
 
 // Constructor
 QRviNode::QRviNode(QObject *parent)
     : QObject(parent), _rviHandle(NULL),
-      _confFile(""), _nodePort("9007"),
-      _nodeAddress("38.129.64.41"),
-      _monitor(Q_NULLPTR)
+      _confFile(QStringLiteral("")), _testNodePort(QStringLiteral("9007")),
+      _testNodeAddress(QStringLiteral("38.129.64.41"))
 {
-    _monitor = new QRviNodeMonitor(this);
-    QThreadPool::globalInstance()->setMaxThreadCount(2);
-    setupConnections();
 }
-
-/* Functional methods */
 
 // Initializer method
 void QRviNode::nodeInit()
 {
+    if (_rviHandle)
+    {
+        qWarning() << "Error: This QRviNode(" << this << ") was already initialized.";
+        return;
+    }
     // check for path to configuration
-    _confFile = QDir::fromNativeSeparators(qgetenv("QT_RVI_NODE_CONFIG_FILE"));
+    _confFile = QDir::fromNativeSeparators(QLatin1String(qgetenv("QT_RVI_NODE_CONFIG_FILE")));
     if (_confFile.isEmpty())
     {
         qWarning() << "Error: QT_RVI_NODE_CONFIG_FILE must be set in order to use QRviNode";
@@ -49,10 +58,8 @@ void QRviNode::nodeInit()
 // Cleanup method
 void QRviNode::nodeCleanup()
 {
-    _monitor->stopMonitor();
-    QThreadPool::globalInstance()->waitForDone(5000);
-
     int returnVal = 0;
+
     //memory and connections to this handle
     //are cleaned up by rvi_lib
     returnVal = rviCleanup(_rviHandle);
@@ -69,38 +76,45 @@ void QRviNode::nodeCleanup()
 // Takes address and port as params but default arg is ""
 // uses the existing member values for address/port if no
 // new values are passed to the method
-void QRviNode::nodeConnect(const QString &address, const QString &port)
+int QRviNode::nodeConnect(const QString &address, const QString &port)
 {
-    int fd = 0;
+    int fd = -1;
+
+    QString tempAddress = _testNodeAddress;
+    QString tempPort = _testNodePort;
 
     // did we get new connection info?
     if (!address.isEmpty())
-        setNodeAddress(address);
+        tempAddress = address;
     if (!port.isEmpty())
-        setNodePort(port);
+        tempPort = port;
 
     // check the handle is valid
     if (_rviHandle)
     {
         // connect to rvi node
-        fd = rviConnect(_rviHandle, _nodeAddress.toStdString().c_str(),
-                        _nodePort.toStdString().c_str());
+        fd = rviConnect(_rviHandle, tempAddress.toStdString().c_str(),
+                        tempPort.toStdString().c_str());
         // check for valid file descriptor
-        if (fd < 0)
+        if (fd <= 0)
         {
-            qWarning() << "Error: rviConnect failed to return a valid API handle"
+            qWarning() << "Error: rviConnect failed to return a valid socket descriptor"
                        << "Please check the server address and port"
-                       << "Address: " << _nodeAddress << ":" << _nodePort;
+                       << "Address: " << _testNodeAddress << ":" << _testNodePort;
             emit remoteConnectionError();
         }
-        if (addNewConnectionDescriptor(fd))
-            emit remoteNodeConnected();
+        else
+        {
+            if (addNewConnection(fd, tempAddress, tempPort))
+                emit remoteNodeConnected();
+        }
     }
     else
     {
         qWarning() << "Error: invalid RviHandle, is the node properly initialized?";
         emit invalidRviHandle();
     }
+    return fd;
 }
 
 // Rvi Node disconnection method
@@ -108,8 +122,10 @@ void QRviNode::nodeConnect(const QString &address, const QString &port)
 // and, if valid, removes and disconnects the specified descriptor
 void QRviNode::nodeDisconnect(int fd)
 {
+    int returnVal = 0;
+
     // is this a valid disconnect request?
-    if (!_activeConnections.contains(fd))
+    if (!_connectionReaderMap.contains(fd))
     {
         qWarning() << "Error: specified connection does not exist in the list"
                    << "of active connections"
@@ -118,19 +134,25 @@ void QRviNode::nodeDisconnect(int fd)
         return;
     }
 
-    int index = 0;
-    int returnVal = 0;
-
-    // find our item's index
-    for (int i : _activeConnections)
+    // take and cleanup the related monitor thread
+    auto * m = _connectionReaderMap[fd];
+    if (m)
     {
-        if (i == fd)
-            break;
-        ++index;
-    }
-    _activeConnections.removeAt(index);
+        m->stopMonitor();
 
+        // wait the timeout length of the monitor thread before deleting
+        QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue());
+        while (QTime::currentTime() < dieTime);
+
+        delete m;
+        m = Q_NULLPTR;
+    }
+    // then remove the descriptor map entry
+    _connectionReaderMap.remove(fd);
+
+    // finally tell rvi_lib we no longer need this
     returnVal = rviDisconnect(_rviHandle, fd);
+
     if (returnVal != 0)
     {
         qWarning() << "Error: unknown failure from rviDisconnect call"
@@ -141,19 +163,41 @@ void QRviNode::nodeDisconnect(int fd)
     emit disconnectSuccess(fd);
 }
 
-// TODO: serviceData param? needs a couple overloads possibly?
-void QRviNode::registerService(const QString &serviceName, QRviServiceObject *serviceObject, void *serviceData)
+void QRviNode::registerService(const QString &serviceName, QRviServiceInterface *serviceObject)
 {
-    Q_UNUSED(serviceData)
+    bool firstServiceOnNode = true;
 
-    // save the serviceObject pointer
-    _serviceMap[serviceName] = serviceObject;
+    connect(this, &QRviNode::signalServicesForNodeCleanup,
+            serviceObject, &QRviServiceInterface::destroyRviService);
 
-    // nicely create the char * for service name
-    char * sn = new char[serviceName.length() + 1];
-    qstrcpy(sn, serviceName.toLatin1().data());
+    int result = 0;
 
-    int result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, (void*)sn);
+
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode != true)
+    {
+        qDebug() << "QRviNode::registerService prelock()";
+        for (QRviNodeMonitor * m : _connectionReaderMap)
+            m->getLock()->lock();
+    }
+    qDebug() << "QRviNode::registerService node descriptors locked";
+
+    result = rviRegisterService(_rviHandle, serviceName.toLocal8Bit().data(), callbackHandler, serviceObject);
+
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode == true)
+        firstServiceOnNode = false;
+
+    qDebug() << "QRviNode::registerService post API call, unlocking";
+
+    // TODO: hack to at least ignore race condition on demo starts
+    if (firstServiceOnNode != true)
+    {
+        for (QRviNodeMonitor * m : _connectionReaderMap)
+            m->getLock()->unlock();
+        qDebug() << "QRviNode::registerService threads unlocked";
+    }
+
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviRegisterService call"
@@ -164,29 +208,45 @@ void QRviNode::registerService(const QString &serviceName, QRviServiceObject *se
     emit registerServiceSuccess(serviceName);
 }
 
-// Returns the reference to this instance of QRviNode
-QRviNode * QRviNode::getInstance()
-{
-    static QRviNode * _instance = new QRviNode();
-    return _instance;
-}
 
-void QRviNode::callbackHandler(int fd, void *serviceData, const char *parameters)
+// void *serviceData parameter contains the QRviServiceInterface* to invoke
+void callbackHandler(int fd, void *serviceData, const char *parameters)
 {
-    //currently passing around the serviceName
-    QString serviceName((char *)serviceData);
-    QRviNode::getInstance()->
-            getServiceObjectFromMap(serviceName)->
-            rviServiceCallback(
-                fd,
-                serviceData,
-                parameters
-                );
+    // TODO: Jack Sanchez 22 May 2017
+    // This feels very hacky because it gives the user a pointer to themselves
+    // and is something which can be fixed with the C++ reimplementation of:
+    // https://github.com/GENIVI/rvi_core/blob/develop/doc/rvi_protocol.md
+    QRviServiceInterface * service = (QRviServiceInterface*)serviceData;
+    service->rviServiceCallback(fd, serviceData, parameters);
 }
 
 void QRviNode::invokeService(const QString &serviceName, const QString &parameters)
 {
-    int result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+    if (serviceName.isEmpty())
+    {
+        qWarning() << "Error: cannot invoke a service without a service name parameter";
+        return;
+    }
+
+    int result = 0;
+
+    qDebug() << "QRviNode::invokeService prelock() with service: " << serviceName;
+
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        m->getLock()->lock();
+
+    qDebug() << "QRviNode::invokeService threads locked";
+
+    // now thread safe to invoke write on unknown socket connection
+    result = rviInvokeService(_rviHandle, serviceName.toLocal8Bit().data(), parameters.toLocal8Bit().data());
+
+    qDebug() << "QRviNode::invokeService post API call";
+
+    for (QRviNodeMonitor * m : _connectionReaderMap)
+        m->getLock()->unlock();
+
+    qDebug() << "QRviNode::invokeService threads unlocked";
+
     if (result != 0)
     {
         qWarning() << "Error: unknown failure from rviInvokeService call"
@@ -197,17 +257,21 @@ void QRviNode::invokeService(const QString &serviceName, const QString &paramete
     emit invokeServiceSuccess(serviceName, parameters);
 }
 
-// QRviNode::processInput receives the fd notified from the monitor thread
-// so we know the size of the connectionArray is always 1
-void QRviNode::processInput(int fd)
+void QRviNode::onReadyRead(int socket)
 {
+    int result = 0;
+
     // create int* of lenth = 1
     int * connectionArray = (int*)malloc(sizeof(int *));
 
     // assign the only element of connectionArray
-    connectionArray[0] = fd;
+    connectionArray[0] = socket;
 
-    int result = rviProcessInput(_rviHandle, connectionArray, 1);
+    {// anonymous scope for QMutexLocker
+        QMutexLocker l(_connectionReaderMap[socket]->getLock());
+        result = rviProcessInput(_rviHandle, connectionArray, 1);
+    }
+    emit signalMonitorForDoneReading();
 
     if (result != 0)
     {
@@ -216,55 +280,11 @@ void QRviNode::processInput(int fd)
         emit processInputError();
         return;
     }
-    emit processInputSuccess(fd);
+    emit processInputSuccess(socket);
     free(connectionArray);
 }
 
-QRviServiceObject * QRviNode::getServiceObjectFromMap(const QString &serviceName)
-{
-    if (_serviceMap.contains(serviceName))
-        return _serviceMap[serviceName];
-    return Q_NULLPTR;
-}
-
-QList<int> * QRviNode::activeConnections()
-{
-    return &_activeConnections;
-}
-
 /* Property methods */
-
-// Returns the string of nodePort
-QString QRviNode::nodePort() const
-{
-    return _nodePort;
-}
-
-// Sets the node port to the new value if it is actually new
-void QRviNode::setNodePort(const QString &port)
-{
-    if (_nodePort != port)
-    {
-        _nodePort = port;
-        emit nodePortChanged();
-    }
-}
-
-// Returns the string of nodeAddress
-QString QRviNode::nodeAddress() const
-{
-    return _nodeAddress;
-}
-
-// Sets the node address to the new ip if it is actually new
-void QRviNode::setNodeAddress(const QString &address)
-{
-    if (_nodeAddress != address)
-    {
-        _nodeAddress = address;
-        emit nodeAddressChanged();
-    }
-}
 
 // Returns the string of the config file
 QString QRviNode::configFile() const
@@ -284,31 +304,46 @@ void QRviNode::setConfigFile(const QString &file)
 
 QRviNode::~QRviNode()
 {
+    static int counter = 0;
+
+    qDebug() << "------- BEGIN -------- QRviNode::~QRviNode execution count: " << counter++;
+
+    // stop all threads before the nodeCleanup call
+    for (auto * m : _connectionReaderMap.values())
+    {
+        if (m)
+        {
+            m->stopMonitor();
+
+            // wait the timeout length of the monitor thread before deleting
+            QTime dieTime = QTime::currentTime().addMSecs(m->getTimeoutValue() + 1);
+            while (QTime::currentTime() < dieTime);
+
+            delete m;
+            m = Q_NULLPTR;
+        }
+    }
+
+    // short wait time just to make sure everyone has returned
+    QThreadPool::globalInstance()->waitForDone(100);
+
+    _connectionReaderMap.clear();
     this->nodeCleanup();
+    emit signalServicesForNodeCleanup();
+
+    qDebug() << "------- END -------- QRviNode::~QRviNode execution count: " << counter++;
 }
 
 /* Private methods */
-
-void QRviNode::setupConnections()
-{
-    connect(this, &QRviNode::nodeMonitorBadPointer,
-            this, &QRviNode::handleRviMonitorFatalError);
-
-    connect(_monitor, &QRviNodeMonitor::rviMonitorFatalError,
-            this, &QRviNode::handleRviMonitorFatalError);
-
-    connect(_monitor, &QRviNodeMonitor::rviReadyRead,
-            this, &QRviNode::processInput, Qt::QueuedConnection);
-}
 
 // adds a new descriptor to the self-managed connection list
 // checks for duplicate descriptor values, as this should not happen
 // return true if unique descriptor added and notifies
 // return false if unique descriptor added and notifies
-bool QRviNode::addNewConnectionDescriptor(int fd)
+bool QRviNode::addNewConnection(int fd, const QString &address, const QString &port)
 {
     // not allowed to have duplicate descriptors
-    if (_activeConnections.contains(fd))
+    if (_connectionReaderMap.contains(fd))
     {
         qWarning() << "Error: QRviNode expects new connections to"
                    << "receive a unique integer file descriptor";
@@ -316,53 +351,91 @@ bool QRviNode::addNewConnectionDescriptor(int fd)
         return false;
     }
 
-    _activeConnections.append(fd);
-    _monitor->addSocketDescriptor(fd);
+    _connectionReaderMap.insert(fd, new QRviNodeMonitor(fd, address, port, this));
 
-    // if this is the first connection, start the _monitor
-    if (_activeConnections.length() == 1)
-        prepareAndRunRviMonitor();
+    // pull, prepare, and start current monitor object
+    auto * m = _connectionReaderMap[fd];
+
+    // make connections to the current monitor
+    connect(m, &QRviNodeMonitor::readyRead,
+            this, &QRviNode::onReadyRead);
+    connect(m, &QRviNodeMonitor::rviMonitorError,
+            this, &QRviNode::handleRviMonitorError);
+    connect(this, &QRviNode::signalMonitorForDoneReading,
+            m, &QRviNodeMonitor::handleNodeDoneReading);
+
+    // start the thread
+    m->startMonitor();
+    QThreadPool::globalInstance()->start(m);
 
     emit newActiveConnection();
     return true;
 }
 
-void QRviNode::handleRviMonitorFatalError(int error)
+/* *
+ * This method switches over the errno result signaled by
+ * the QRviNodeMonitor thread, which provides the associated
+ * socket descriptor and the error code in order to check
+ * which operations should be performed.
+ * */
+void QRviNode::handleRviMonitorError(int socket, int error)
 {
-    qWarning() << "QRviNodeMonitor bombed out with the following code..."
-               << "Error Value: " << error
-               << "Restarting QRviNodeMonitor...";
-
-    // if it still exists, destroy it
-    if (_monitor)
+    switch (error)
     {
-        _monitor->stopMonitor();
-        delete _monitor;
-        _monitor = Q_NULLPTR;
+    case EFAULT:
+        qWarning() << "Fatal Error: array given as argument to poll()"
+                   << "was not contained in the calling program's address space!";
+        this->nodeDisconnect(socket);
+        break;
+    case EINVAL:
+        // should never see this because we only use poll() on a single socket
+        qWarning() << "Fatal Error: nfds param value exceeds RLIMIT_NOFILE value.";
+        break;
+    case ENOMEM:
+        qWarning() << "Fatal Error: system has no space remaining to allocate"
+                   << "the file descriptor tables!";
+        this->nodeDisconnect(socket);
+        break;
     }
-
-    // recreate a new one
-    _monitor = new QRviNodeMonitor(this);
-
-    // add all active connections
-    for (int fd : _activeConnections)
-        _monitor->addSocketDescriptor(fd);
-
-    _monitor->startMonitor();
-
-    QThreadPool::globalInstance()->start(_monitor);
 }
 
-// this method assumes any socket descriptors have already
-// been set before running the _monitor
-void QRviNode::prepareAndRunRviMonitor()
+int QRviNode::findAssociatedConnectionId(const QString &address, const QString &port)
 {
-    if (!_monitor)
+    // if we only have one active connection, just return that
+    if (_connectionReaderMap.size() == 1)
+        return _connectionReaderMap.firstKey();
+
+    // resolve and save values
+    int socket = 0;
+    bool noPortParam = port.isEmpty();
+    bool noAddressParam = address.isEmpty();
+
+    // user passed no params, defaulting to rvi test server address
+    if (noPortParam && noAddressParam)
     {
-        qWarning() << "Error: unexpected nullptr returned from QRviNodeMonitor"
-                   << "aborting prepareAndRunRviMonitor call...";
-        emit nodeMonitorBadPointer(420);
+        for (auto * m : _connectionReaderMap)
+        {// we're just looking for the test server socket, address compare is enough
+            if (m->getAddress() == _testNodeAddress)
+            {// found the test server, exit loop
+                socket = m->getSocket();
+                break;
+            }
+        }
     }
-    _monitor->startMonitor();
-    QThreadPool::globalInstance()->start(_monitor);
+    else
+    {// TODO: do a concat and compare the address:port to ensure unique connection is identified
+        for (auto * m : _connectionReaderMap)
+        {
+            if (m->getAddress() == address)
+            {
+                socket = m->getSocket();
+                break;
+            }
+        }
+    }
+    // we found no socket, this is unexpected
+    if (socket == 0) // return invalid socket descriptor
+        socket = -1;
+
+    return socket;
 }
