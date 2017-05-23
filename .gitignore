@@ -1,3 +1,30 @@
+*.swp
+*.pro.user
+*.qmlproject.user
+.qmllive.config
+docs/html
+.DS_Store
+moc_*
+*.o
+*.dylib
+*.moc
+*.stash
+*.a
+Makefile*
+*.autosave
+*.so
+*.dll
+*.obj
+*.exp
+*.lib
+lib
+mkspecs
+include
+qml
+.pch
+*.version**
+.qmake.cache
+.qmake.stash
 # Prerequisites
 *.d
 
