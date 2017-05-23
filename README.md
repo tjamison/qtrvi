@@ -54,9 +54,11 @@ Examples:
 Note: Due to the current limitation of rvi_lib, a given service cannot invoke another service which is registered on the same QRviNode.
 
 Ex 1)
-rvi-helloworld:
-This example intends to demonstrate the minimal amount of C++ required to create an RVI service 
+rviserviceping:
+This example intends to demonstrate the minimal amount of QML required to implement an RVI service.
+Functions as the user application to instigate behavior on the rviservicepong example application.
 
-
-
-
+Ex 2)
+rviservicepong:
+This example intends to demonstrate the minimal amount of C++ required to implement an Rvi Service.
+Functions as a command line application waiting for input from the rviserviceping user application.
