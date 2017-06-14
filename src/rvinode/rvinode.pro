@@ -22,10 +22,11 @@ qnx {
     INCLUDEPATH += $$(QNX_TARGET)/x86/include
     LIBS += -L$$(QNX_TARGET)/x86/lib 
 }
-unix {
-    INCLUDEPATH += /usr/local
-    LIBS += -L/usr/local/lib
-}
+# Still unsafe for cross-compilation
+#unix {
+#    INCLUDEPATH += /usr/local
+#    LIBS += -L/usr/local/lib
+#}
 
 LIBS += -lrvi
 
